@@ -34,17 +34,22 @@ function AiLabelChips({ labels = [] }) {
   )
 }
 
-export default function IssuesPage({ loading, issues, claudeIssues }) {
+export default function IssuesPage({ loading, issues, claudeIssues, currentUser }) {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [page, setPage]     = useState(0)
 
-  const closed = issues.filter(i => i.state === 'closed')
-  const open   = issues.filter(i => i.state === 'opened')
+  // Only show issues created by the current user (token owner)
+  const myIssues = currentUser
+    ? issues.filter(i => i.author?.username === currentUser.username || i.author?.id === currentUser.id)
+    : issues
+
+  const closed = myIssues.filter(i => i.state === 'closed')
+  const open   = myIssues.filter(i => i.state === 'opened')
 
   const aiIssueIds = new Set(claudeIssues.map(t => t.issue.id))
 
-  const filtered = issues.filter(issue => {
+  const filtered = myIssues.filter(issue => {
     const isAI = aiIssueIds.has(issue.id) || hasAILabel(issue.labels)
     if (filter === 'ai'     && !isAI) return false
     if (filter === 'manual' &&  isAI) return false
@@ -59,7 +64,7 @@ export default function IssuesPage({ loading, issues, claudeIssues }) {
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
   const pageItems  = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
-  const aiCount    = issues.filter(i => aiIssueIds.has(i.id) || hasAILabel(i.labels)).length
+  const aiCount    = myIssues.filter(i => aiIssueIds.has(i.id) || hasAILabel(i.labels)).length
 
   function handleFilter(f) { setFilter(f); setPage(0) }
   function handleSearch(s) { setSearch(s);  setPage(0) }
@@ -83,7 +88,7 @@ export default function IssuesPage({ loading, issues, claudeIssues }) {
         </div>
       )}
 
-      <IssuesChart issues={issues} loading={loading} />
+      <IssuesChart issues={myIssues} loading={loading} />
 
       {/* Issues table */}
       <div className="bg-obs-surface border border-obs-border rounded-xl overflow-hidden">

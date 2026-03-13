@@ -9,12 +9,17 @@ function hasLabel(mr, name) {
   })
 }
 
-export default function MRsPage({ loading, taggedMRs }) {
-  const total      = taggedMRs.length
-  const aiMRs      = taggedMRs.filter(t => t.isClaudeAssisted)
-  const fullyAI    = taggedMRs.filter(t => hasLabel(t.mr, 'ai::generated'))
-  const partialAI  = taggedMRs.filter(t => hasLabel(t.mr, 'ai::assisted'))
-  const merged     = taggedMRs.filter(t => t.mr.state === 'merged')
+export default function MRsPage({ loading, taggedMRs, currentUser }) {
+  // Only show MRs authored by the current user (token owner)
+  const myTaggedMRs = currentUser
+    ? taggedMRs.filter(t => t.mr.author?.username === currentUser.username || t.mr.author?.id === currentUser.id)
+    : taggedMRs
+
+  const total      = myTaggedMRs.length
+  const aiMRs      = myTaggedMRs.filter(t => t.isClaudeAssisted)
+  const fullyAI    = myTaggedMRs.filter(t => hasLabel(t.mr, 'ai::generated'))
+  const partialAI  = myTaggedMRs.filter(t => hasLabel(t.mr, 'ai::assisted'))
+  const merged     = myTaggedMRs.filter(t => t.mr.state === 'merged')
 
   const cards = [
     { label: 'Total MRs',            value: total,           color: 'text-obs-text-bright', sub: `${merged.length} merged` },
@@ -39,10 +44,10 @@ export default function MRsPage({ loading, taggedMRs }) {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <MRSizeChart      taggedMRs={taggedMRs} loading={loading} />
-        <TimeToMergeChart taggedMRs={taggedMRs} loading={loading} />
+        <MRSizeChart      taggedMRs={myTaggedMRs} loading={loading} />
+        <TimeToMergeChart taggedMRs={myTaggedMRs} loading={loading} />
       </div>
-      <MRList taggedMRs={taggedMRs} loading={loading} />
+      <MRList taggedMRs={myTaggedMRs} loading={loading} />
     </div>
   )
 }
