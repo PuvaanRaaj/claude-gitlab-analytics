@@ -1,7 +1,7 @@
 # Stage 1 - builder
 FROM node:20-alpine AS builder
 
-ARG VITE_GITLAB_URL=https://gitlab.com
+ARG VITE_GITLAB_URL=https://git2u.fiuu.com
 ARG VITE_GITLAB_TOKEN=
 ARG VITE_TEAM_ALLOWED_USERS=
 
