@@ -78,7 +78,7 @@ export default function IssuesPage({ loading, issues, claudeIssues, currentUser 
             { label: 'Total',  value: issues.length, color: 'text-obs-text-bright' },
             { label: 'Open',   value: open.length,   color: 'text-obs-amber' },
             { label: 'Closed', value: closed.length, color: 'text-green-400' },
-            { label: 'AI-assisted', value: aiCount,  color: 'text-obs-cyan' },
+            { label: 'Created With AI', value: aiCount,  color: 'text-obs-cyan' },
           ].map(({ label, value, color }) => (
             <div key={label} className="bg-obs-surface border border-obs-border rounded-xl p-4 text-center">
               <div className={`font-mono text-2xl font-semibold ${color} mb-1`}>{value}</div>

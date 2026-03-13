@@ -83,6 +83,11 @@ export function extractAITool(message = '') {
     return 'Cursor'
   }
 
+  // Priority 5b: descriptive action commit (Antigravity-style)
+  if (fl.length >= 50 && DESCRIPTIVE_ACTION_COMMIT.test(fl) && !fl.startsWith('Merge ') && !fl.startsWith('Revert ')) {
+    return 'Antigravity'
+  }
+
   // Priority 5: Detailed conventional commit (Antigravity-style)
   const ccMatch = fl.match(/^(?:feat|fix|refactor|chore|docs|style|test|perf|ci|build|revert)(?:\(.+\))?!?:\s*(.+)/i)
   if (ccMatch && ccMatch[1].trim().length >= 40) {
@@ -109,6 +114,11 @@ const ANTIGRAVITY_COMPLEXITY = /cyclomatic\s+complexity|complexity from \d+|thre
 //      "increase processing-lock TTL to 90s to prevent duplicate finalization"
 // Pattern: starts lowercase verb, 35+ chars, contains "for/to/in/by/with/and" purpose clause, single line
 const CURSOR_COMMIT = /^[a-z]+(?: \w+){3,} (?:for|to|in|by|with|and) \w/
+
+// Descriptive uppercase-verb commit: starts with an action word, 50+ chars
+// e.g. "Rename index 'idx_pending2failed' to 'idx_pending2failed_cashxxx' on transaction_credit table for clarity"
+// e.g. "Refactor CIL charge card check to include additional payment method indicator."
+const DESCRIPTIVE_ACTION_COMMIT = /^(?:Rename|Refactor|Update|Add|Remove|Fix|Improve|Enhance|Implement|Migrate|Extract|Move|Delete|Optimise|Optimize|Replace|Handle|Include|Configure|Enable|Disable|Convert|Apply|Create|Introduce|Ensure|Validate|Resolve|Simplify|Consolidate|Restructure) .{40,}/
 
 // GitLab label names that indicate AI usage (case-insensitive)
 export const AI_LABEL_PATTERNS = [
@@ -206,7 +216,7 @@ export function isClaudeCommit(commit, avgFilesChanged, thresholds = DEFAULT_THR
     reasons.push('risk_level_trailer')
   }
 
-  // Heuristic: conventional commit prefix (feat:, fix:, etc.)
+  // Definitive: conventional commit prefix (feat:, fix:, etc.) — this team uses these for AI commits
   if (thresholds.conventionalCommit && CONVENTIONAL_PREFIXES.test(message.trim())) {
     reasons.push('conventional_commit')
   }
@@ -245,13 +255,23 @@ export function isClaudeCommit(commit, avgFilesChanged, thresholds = DEFAULT_THR
     reasons.push('cursor_style')
   }
 
+  // Definitive: descriptive uppercase-verb commit (Antigravity-style without conventional prefix)
+  if (
+    firstLine.length >= 50 &&
+    DESCRIPTIVE_ACTION_COMMIT.test(firstLine) &&
+    !firstLine.startsWith('Merge ') &&
+    !firstLine.startsWith('Revert ')
+  ) {
+    reasons.push('descriptive_action_commit')
+  }
+
   // Heuristic: high files-changed count relative to average
   const filesChanged = commit.stats?.total ?? 0
   if (avgFilesChanged > 0 && filesChanged > avgFilesChanged * thresholds.filesChangedMultiplier) {
     reasons.push('high_files_changed')
   }
 
-  const DEFINITIVE = ['ai_agent_trailer', 'co_author_trailer', 'risk_level_trailer', 'antigravity_pattern', 'cursor_style', 'detailed_conventional_commit']
+  const DEFINITIVE = ['ai_agent_trailer', 'co_author_trailer', 'risk_level_trailer', 'antigravity_pattern', 'cursor_style', 'detailed_conventional_commit', 'conventional_commit', 'descriptive_action_commit']
   const hasDefinitive = reasons.some(r => DEFINITIVE.includes(r))
   const heuristicCount = reasons.filter(r => !DEFINITIVE.includes(r)).length
 
@@ -303,32 +323,14 @@ export function isClaudeMR(mr) {
 }
 
 /**
- * Detect if an issue was closed via fast Claude-driven turnaround
+ * Detect if an issue was created with AI assistance.
+ * Label-only detection — fast_closure_after_mr removed as it tagged ALL issues.
  */
-export function isClaudeIssue(issue, mergedMRs, thresholds = DEFAULT_THRESHOLDS) {
+export function isClaudeIssue(issue) {
   const reasons = []
-
-  // Definitive: AI label on the issue
   if (hasAILabel(issue.labels)) {
     reasons.push('ai_label')
   }
-
-  if (issue.closed_at) {
-    const closedAt = new Date(issue.closed_at)
-
-    // Check if any MR was merged within N days before the issue was closed
-    const relatedMR = mergedMRs.find(mr => {
-      if (!mr.merged_at) return false
-      const mergedAt = new Date(mr.merged_at)
-      const daysDiff = (closedAt - mergedAt) / (1000 * 60 * 60 * 24)
-      return daysDiff >= 0 && daysDiff <= thresholds.issueClosureDays
-    })
-
-    if (relatedMR) {
-      reasons.push('fast_closure_after_mr')
-    }
-  }
-
   return {
     isClaudeAssisted: reasons.length > 0,
     reasons,

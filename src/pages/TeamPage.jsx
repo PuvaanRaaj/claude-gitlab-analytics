@@ -82,7 +82,7 @@ export default function TeamPage({ loading, taggedCommits, projects, claudeLines
           icon="◈"
         />
         <MetricCard
-          label="AI MRs"
+          label="MRs Created by AI"
           value={loading ? null : (claudeMRs?.length ?? 0).toLocaleString()}
           sub={`${(claudeMRs || []).filter(t => t.mr.state === 'merged').length} merged`}
           accent="purple"
@@ -91,7 +91,7 @@ export default function TeamPage({ loading, taggedCommits, projects, claudeLines
           icon="⊕"
         />
         <MetricCard
-          label="AI Issues"
+          label="Issues Created With AI"
           value={loading ? null : (claudeIssues?.length ?? 0).toLocaleString()}
           sub={`${(claudeIssues || []).filter(t => t.issue.state === 'closed').length} closed`}
           accent="green"

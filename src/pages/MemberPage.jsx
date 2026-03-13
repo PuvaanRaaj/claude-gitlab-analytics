@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { parseAILabels } from '../utils/detection'
 
-const DEFINITIVE_REASONS = ['ai_agent_trailer', 'co_author_trailer', 'risk_level_trailer', 'antigravity_pattern', 'cursor_style', 'detailed_conventional_commit']
+const DEFINITIVE_REASONS = ['ai_agent_trailer', 'co_author_trailer', 'risk_level_trailer', 'antigravity_pattern', 'cursor_style', 'detailed_conventional_commit', 'conventional_commit', 'descriptive_action_commit']
 const PAGE_SIZE = 25
 
 function normStr(s) {
@@ -39,7 +39,7 @@ function commitSignalBadge(isClaudeAssisted, reasons = [], aiTool) {
   )
 }
 
-function StatCard({ label, value, accent = 'cyan' }) {
+function StatCard({ label, value, sub, accent = 'cyan' }) {
   const accentColors = {
     cyan:   'text-obs-cyan',
     amber:  'text-obs-amber',
@@ -50,6 +50,7 @@ function StatCard({ label, value, accent = 'cyan' }) {
     <div className="bg-obs-surface border border-obs-border rounded-xl p-4">
       <p className="font-mono text-xs text-obs-muted uppercase tracking-widest mb-2">{label}</p>
       <p className={`font-mono font-semibold text-2xl ${accentColors[accent]}`}>{value ?? '—'}</p>
+      {sub && <p className="font-mono text-[10px] text-obs-muted mt-1">{sub}</p>}
     </div>
   )
 }
@@ -99,6 +100,15 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
     ? closedIssues.reduce((s, i) => s + (new Date(i.closed_at) - new Date(i.created_at)), 0) / closedIssues.length
     : 0
 
+  // Burn rate: AI commits per week over the period
+  const commitDates = commits.map(t => new Date(t.commit.authored_date || t.commit.created_at)).filter(Boolean)
+  const periodMs = commitDates.length >= 2
+    ? Math.max(...commitDates) - Math.min(...commitDates)
+    : 7 * 24 * 60 * 60 * 1000
+  const weeks = Math.max(periodMs / (7 * 24 * 60 * 60 * 1000), 1)
+  const aiCommitsWeek = (aiCommits / weeks).toFixed(1)
+  const totalCommitsWeek = (commits.length / weeks).toFixed(1)
+
   const TABS = [
     { id: 'commits', label: `Commits (${commits.length})` },
     { id: 'mrs',     label: `MRs (${memberMRs.length})` },
@@ -107,7 +117,19 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
 
   function switchTab(t) { setTab(t); setPage(0) }
 
-  const activeItems = tab === 'commits' ? commits : tab === 'mrs' ? memberMRs : memberIssues
+  const sortedMRs = [...memberMRs].sort((a, b) => {
+    // Open MRs first
+    if (a.state === 'opened' && b.state !== 'opened') return -1
+    if (b.state === 'opened' && a.state !== 'opened') return 1
+    // Open MRs: oldest first (highest age = most urgent)
+    if (a.state === 'opened' && b.state === 'opened') {
+      return new Date(a.created_at) - new Date(b.created_at)
+    }
+    // Others: newest first
+    return new Date(b.created_at) - new Date(a.created_at)
+  })
+
+  const activeItems = tab === 'commits' ? commits : tab === 'mrs' ? sortedMRs : memberIssues
   const totalPages = Math.ceil(activeItems.length / PAGE_SIZE)
   const pageItems = activeItems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
@@ -133,11 +155,12 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
       </div>
 
       {/* Summary stat cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <StatCard label="Total Commits" value={commits.length.toLocaleString()} accent="cyan" />
         <StatCard label="AI Commits" value={aiCommits.toLocaleString()} accent="purple" />
         <StatCard label="Avg Time to Merge" value={mergedMRs.length > 0 ? fmtDuration(avgMergeMs) : '—'} accent="amber" />
         <StatCard label="Avg Time to Close" value={closedIssues.length > 0 ? fmtDuration(avgCloseMs) : '—'} accent="green" />
+        <StatCard label="Burn Rate (AI/wk)" value={`${aiCommitsWeek}`} sub={`${totalCommitsWeek} total/wk`} accent="cyan" />
       </div>
 
       {/* Tabs + content */}
@@ -158,6 +181,30 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
             </button>
           ))}
         </div>
+
+        {/* Sub-header for MRs tab */}
+        {tab === 'mrs' && (
+          <div className="px-5 py-2 border-b border-obs-border/30 bg-obs-card/20">
+            <span className="font-mono text-[10px] text-obs-muted">
+              {memberMRs.filter(mr => (mr.labels || []).some(l => {
+                const n = typeof l === 'string' ? l : l?.name || ''
+                return n.toLowerCase().startsWith('ai::') || n.toLowerCase().startsWith('code::')
+              })).length} MRs Created by AI · {memberMRs.filter(mr => mr.state === 'opened').length} open · {memberMRs.filter(mr => mr.state === 'merged').length} merged
+            </span>
+          </div>
+        )}
+
+        {/* Sub-header for Issues tab */}
+        {tab === 'issues' && (
+          <div className="px-5 py-2 border-b border-obs-border/30 bg-obs-card/20">
+            <span className="font-mono text-[10px] text-obs-muted">
+              {memberIssues.filter(i => (i.labels || []).some(l => {
+                const n = typeof l === 'string' ? l : l?.name || ''
+                return n.toLowerCase().startsWith('ai::')
+              })).length} Issues Created With AI · {memberIssues.filter(i => i.state === 'closed').length} closed · {memberIssues.filter(i => i.state === 'opened').length} open
+            </span>
+          </div>
+        )}
 
         {/* Content */}
         <div className="divide-y divide-obs-border/50">
@@ -208,6 +255,10 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
                 const mergeMs = mr.state === 'merged' && mr.merged_at && mr.created_at
                   ? new Date(mr.merged_at) - new Date(mr.created_at)
                   : null
+                const openAgeMs = mr.state === 'opened' && mr.created_at
+                  ? Date.now() - new Date(mr.created_at)
+                  : null
+                const ageDays = openAgeMs ? openAgeMs / (1000 * 60 * 60 * 24) : 0
                 return (
                   <div key={mr.id} className="px-5 py-3.5 hover:bg-obs-card/50 transition-colors">
                     <div className="flex items-start gap-3">
@@ -222,6 +273,13 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
                           {mr.author?.username && (
                             <span className="font-mono text-xs text-obs-muted">@{mr.author.username}</span>
                           )}
+                          {openAgeMs !== null && (
+                            <span className={`font-mono text-[10px] font-semibold ${
+                              ageDays > 7 ? 'text-red-400' : ageDays > 3 ? 'text-obs-amber' : 'text-obs-muted'
+                            }`}>
+                              {ageDays > 7 ? '!! ' : ageDays > 3 ? '⚠ ' : ''}open {fmtDuration(openAgeMs)}
+                            </span>
+                          )}
                         </div>
                         {mr.web_url
                           ? <a href={mr.web_url} target="_blank" rel="noopener noreferrer" className="font-sans text-sm text-obs-text-bright hover:text-obs-cyan transition-colors line-clamp-1">{mr.title}</a>
@@ -229,6 +287,15 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
                         <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
                           {mergeMs !== null && (
                             <span className="font-mono text-[10px] text-obs-muted">merged in {fmtDuration(mergeMs)}</span>
+                          )}
+                          {mr.target_branch && (
+                            <span className="font-mono text-[10px] text-obs-muted">→ {mr.target_branch}</span>
+                          )}
+                          {mr.assignees?.[0] && (
+                            <span className="font-mono text-[10px] text-obs-muted">→ @{mr.assignees[0].username}</span>
+                          )}
+                          {mr.user_notes_count > 0 && (
+                            <span className="font-mono text-[10px] text-obs-muted">[{mr.user_notes_count} comments]</span>
                           )}
                           {allAILabels.map(l => (
                             <span key={l} className="px-1.5 py-0.5 rounded border border-obs-cyan/20 font-mono text-[10px] bg-obs-cyan/10 text-obs-cyan">
@@ -252,6 +319,7 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
                 const closeMs = issue.state === 'closed' && issue.closed_at && issue.created_at
                   ? new Date(issue.closed_at) - new Date(issue.created_at)
                   : null
+                const labelCount = (issue.labels || []).length
                 return (
                   <div key={issue.id} className="px-5 py-3.5 hover:bg-obs-card/50 transition-colors">
                     <div className="flex items-start gap-3">
@@ -259,6 +327,12 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
                           <span className="font-mono text-xs text-obs-muted">#{issue.iid}</span>
+                          {issue.assignees?.[0] && (
+                            <span className="font-mono text-[10px] text-obs-muted">→ @{issue.assignees[0].username}</span>
+                          )}
+                          {labelCount > 0 && (
+                            <span className="font-mono text-[10px] text-obs-muted/60">{labelCount} label{labelCount !== 1 ? 's' : ''}</span>
+                          )}
                         </div>
                         {issue.web_url
                           ? <a href={issue.web_url} target="_blank" rel="noopener noreferrer" className="font-sans text-sm text-obs-text-bright hover:text-obs-cyan transition-colors line-clamp-1">{issue.title}</a>

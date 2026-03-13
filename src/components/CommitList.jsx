@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 const PAGE_SIZE = 25
 
-const DEFINITIVE_REASONS = ['ai_agent_trailer', 'co_author_trailer', 'risk_level_trailer', 'antigravity_pattern', 'cursor_style', 'detailed_conventional_commit']
+const DEFINITIVE_REASONS = ['ai_agent_trailer', 'co_author_trailer', 'risk_level_trailer', 'antigravity_pattern', 'cursor_style', 'detailed_conventional_commit', 'conventional_commit', 'descriptive_action_commit']
 
 function AiBadge({ isClaudeAssisted, reasons = [], aiTool }) {
   if (!isClaudeAssisted) {

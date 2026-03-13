@@ -11,7 +11,6 @@ import {
 export function useClaudeDetection(commits, mrs, issues, thresholds) {
   return useMemo(() => {
     const avgFilesChanged = computeAvgFilesChanged(commits)
-    const mergedMRs = mrs.filter(mr => mr.state === 'merged')
 
     // Tag commits
     const taggedCommits = commits.map(commit => {
@@ -27,7 +26,7 @@ export function useClaudeDetection(commits, mrs, issues, thresholds) {
 
     // Tag issues
     const taggedIssues = issues.map(issue => {
-      const result = isClaudeIssue(issue, mergedMRs, thresholds)
+      const result = isClaudeIssue(issue)
       return { issue, ...result }
     })
 
