@@ -11,5 +11,5 @@ services:
     ports:
       - "9999:443"
     volumes:
-      - ./certs:/etc/nginx/certs:ro
+      - ./certs:/etc/nginx/certs
     restart: unless-stopped
