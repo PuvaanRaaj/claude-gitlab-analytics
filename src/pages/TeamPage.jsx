@@ -67,8 +67,8 @@ function BurnRatePanel({ issues, loading }) {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between mb-1">
                 <span className="font-mono text-[10px] text-obs-muted">Closed vs Opened</span>
-                <span className={`font-mono text-xs font-semibold ${burnPct >= 100 ? 'text-green-400' : burnPct >= 70 ? 'text-obs-amber' : 'text-red-400'}`}>
-                  {burnPct}% burn rate
+                <span className={`font-mono text-xs font-semibold ${burnPct >= 100 ? 'text-green-400' : burnPct >= 90 ? 'text-obs-amber' : 'text-red-400'}`}>
+                  {burnPct}% burn rate{burnPct < 100 ? ' ↓ low' : ' ✓'}
                 </span>
               </div>
               {/* Closed bar */}
