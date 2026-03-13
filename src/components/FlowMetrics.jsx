@@ -138,6 +138,79 @@ function MemberStageCards({ flows, stages, title, count, accentColor }) {
   )
 }
 
+const STAGE_LABELS = {
+  coder:          'Coder (coding)',
+  review:         'Review (waiting for reviewer)',
+  qc:             'QC (waiting for QC)',
+  waiting_release:'Waiting for Release Queue',
+  waiting_deploy: 'Waiting for Deployer',
+  deploy:         'Deploy (waiting for deployment)',
+}
+
+function StuckBadge({ stuckMs }) {
+  const days = stuckMs / (24 * 60 * 60 * 1000)
+  if (days > 3) return <span className="font-mono text-[10px] text-red-400 font-semibold animate-pulse">● {fmtDur(stuckMs)}</span>
+  if (days > 1) return <span className="font-mono text-[10px] text-obs-amber font-semibold">● {fmtDur(stuckMs)}</span>
+  return <span className="font-mono text-[10px] text-green-400">● {fmtDur(stuckMs)}</span>
+}
+
+/** List of open MRs with current stuck stage */
+function InProgressMRs({ mrFlows }) {
+  const open = mrFlows
+    .filter(f => f.isOpen && f.stuckMs > 0)
+    .sort((a, b) => b.stuckMs - a.stuckMs)
+  if (!open.length) return null
+
+  return (
+    <div className="bg-obs-surface border border-obs-border rounded-xl overflow-hidden">
+      <div className="px-4 py-2.5 border-b border-obs-border bg-obs-card/30 flex items-center gap-3">
+        <div className="w-1.5 h-1.5 rounded-full bg-obs-amber animate-pulse" />
+        <span className="font-mono text-[10px] uppercase tracking-widest text-obs-amber">
+          Currently In Progress — {open.length} open MR{open.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+      <div className="divide-y divide-obs-border/40">
+        {open.map(f => (
+          <div key={f.mrId} className="flex items-center gap-3 px-4 py-2.5 hover:bg-obs-card/30 transition-colors">
+            {/* Stuck time */}
+            <div className="w-20 flex-shrink-0 text-right">
+              <StuckBadge stuckMs={f.stuckMs} />
+            </div>
+            {/* Stage */}
+            <div className="w-44 flex-shrink-0">
+              <span className="font-mono text-[10px] text-obs-muted">
+                {STAGE_LABELS[f.currentStage] || f.currentStage}
+              </span>
+            </div>
+            {/* Flow type badge */}
+            <span className={`flex-shrink-0 font-mono text-[9px] px-1.5 py-0.5 rounded border ${
+              f.flowType === 'backend'
+                ? 'border-obs-cyan/20 bg-obs-cyan/10 text-obs-cyan'
+                : 'border-purple-400/20 bg-purple-400/10 text-purple-400'
+            }`}>
+              {f.flowType === 'backend' ? 'B' : 'S'}
+            </span>
+            {/* Author */}
+            <span className="font-mono text-[10px] text-obs-cyan flex-shrink-0">@{f.username}</span>
+            {/* MR title */}
+            <div className="flex-1 min-w-0">
+              {f.webUrl ? (
+                <a href={f.webUrl} target="_blank" rel="noopener noreferrer"
+                  className="font-mono text-xs text-obs-text hover:text-obs-cyan transition-colors truncate block"
+                  title={f.title}>
+                  !{f.iid} {f.title}
+                </a>
+              ) : (
+                <span className="font-mono text-xs text-obs-text truncate block">!{f.iid} {f.title}</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /** Loading skeleton */
 function FlowSkeleton() {
   return (
@@ -193,12 +266,13 @@ export default function FlowMetrics({
 
   // Team table view
   const perUser = groupFlowsByUser(mrFlows, issueFlows)
-  const hasData = mrFlows.length > 0 || issueFlows.length > 0
+  const completedMRFlows = mrFlows.filter(f => !f.isOpen)
+  const hasData = completedMRFlows.length > 0 || issueFlows.length > 0
 
-  if (!hasData) {
+  if (!hasData && !mrFlows.some(f => f.isOpen)) {
     return (
       <p className="font-mono text-xs text-obs-muted py-4">
-        No completed MRs / issues with DO:: labels found in the selected time range.
+        No MRs / issues with DO:: labels found in the selected time range.
       </p>
     )
   }
@@ -208,6 +282,16 @@ export default function FlowMetrics({
 
   return (
     <div className="space-y-5">
+      {/* Currently in-progress MRs — always shown first */}
+      <InProgressMRs mrFlows={mrFlows} />
+
+      {!hasData && (
+        <p className="font-mono text-xs text-obs-muted">
+          No completed MRs / issues with DO:: labels yet — averages will appear as data is merged.
+        </p>
+      )}
+
+      {hasData && <>
       {/* Legend */}
       <div className="flex items-center gap-4 flex-wrap">
         <span className="font-mono text-[10px] text-green-400">● &lt; 1d  OK</span>
@@ -296,6 +380,7 @@ export default function FlowMetrics({
           </div>
         )}
       </div>
+      </>}
     </div>
   )
 }

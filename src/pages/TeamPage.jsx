@@ -124,10 +124,7 @@ export default function TeamPage({ loading, taggedCommits, projects, claudeLines
         />
       </div>
 
-      <TeamBreakdown    taggedCommits={taggedCommits} mrs={mrs} issues={issues} loading={loading} memberUsernameMap={memberUsernameMap} onSelectMember={onSelectMember} />
-      <ProjectBreakdown taggedCommits={taggedCommits} projects={projects} loading={loading} />
-
-      {/* Flow Analytics — lazy loaded */}
+      {/* Flow Analytics — right under the metric cards */}
       <div className="bg-obs-surface border border-obs-border rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-obs-border">
           <div>
@@ -147,7 +144,7 @@ export default function TeamPage({ loading, taggedCommits, projects, claudeLines
             <span className="font-mono text-xs text-obs-muted animate-pulse">Fetching label events…</span>
           ) : (
             <span className="font-mono text-xs text-obs-muted">
-              {mrFlows.length} MRs · {issueFlows.length} issues analysed
+              {mrFlows.filter(f => f.isOpen).length} open · {mrFlows.filter(f => !f.isOpen).length} merged · {issueFlows.length} issues
             </span>
           )}
         </div>
@@ -162,6 +159,9 @@ export default function TeamPage({ loading, taggedCommits, projects, claudeLines
           </div>
         )}
       </div>
+
+      <TeamBreakdown    taggedCommits={taggedCommits} mrs={mrs} issues={issues} loading={loading} memberUsernameMap={memberUsernameMap} onSelectMember={onSelectMember} />
+      <ProjectBreakdown taggedCommits={taggedCommits} projects={projects} loading={loading} />
     </div>
   )
 }

@@ -21,11 +21,12 @@ export function useFlowAnalytics(mrs = [], issues = [], enabled = false) {
   useEffect(() => {
     if (!enabled || fetched) return
 
-    const mergedMRs    = mrs.filter(mr => mr.state === 'merged' && mr.merged_at)
-    const closedIssues = issues.filter(i  => i.state  === 'closed' && i.closed_at)
+    // Include both merged (completed flow) and open (currently in progress) MRs
+    const relevantMRs  = mrs.filter(mr => mr.state === 'merged' || mr.state === 'opened')
+    const closedIssues = issues.filter(i => i.state === 'closed' && i.closed_at)
 
     // Cap at 150 most-recent to protect localStorage quota
-    const mrsToFetch    = mergedMRs.slice(-150)
+    const mrsToFetch    = relevantMRs.slice(-150)
     const issuesToFetch = closedIssues.slice(-150)
 
     if (!mrsToFetch.length && !issuesToFetch.length) {

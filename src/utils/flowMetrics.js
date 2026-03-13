@@ -59,6 +59,8 @@ function firstAddedAt(events, labelName) {
 export function computeMRFlow(mr, labelEvents = []) {
   const created = new Date(mr.created_at).getTime()
   const merged  = mr.merged_at ? new Date(mr.merged_at).getTime() : null
+  const isOpen  = mr.state === 'opened'
+  const now     = Date.now()
 
   const readyForReview = firstAddedAt(labelEvents, 'DO::Ready For Review')
   const deployUAT      = firstAddedAt(labelEvents, 'DO::Deploy UAT')
@@ -67,24 +69,51 @@ export function computeMRFlow(mr, labelEvents = []) {
                       || firstAddedAt(labelEvents, 'DO::Read For Merge') // typo variant
   const releaseQueue   = firstAddedAt(labelEvents, 'DO::Release Queue')
 
-  // Auto-detect flow type:
-  // Backend → has DO::Deploy UAT (goes through UAT + QC stages)
-  // Server  → has DO::Ready For Merge but no DO::Deploy UAT (review directly to deploy)
+  // Auto-detect flow type
   const isBackend = !!deployUAT
   const reviewEnd = isBackend ? deployUAT : readyForMerge
 
+  // For open MRs: determine which stage they're currently stuck at
+  // and how long they've been there
+  let currentStage = null
+  let stuckMs      = null
+  if (isOpen) {
+    if (releaseQueue) {
+      currentStage = 'deploy'
+      stuckMs      = now - releaseQueue
+    } else if (isBackend && checked) {
+      currentStage = 'waiting_release'
+      stuckMs      = now - checked
+    } else if (isBackend && deployUAT) {
+      currentStage = 'qc'
+      stuckMs      = now - deployUAT
+    } else if (!isBackend && readyForMerge) {
+      currentStage = 'waiting_deploy'
+      stuckMs      = now - readyForMerge
+    } else if (readyForReview) {
+      currentStage = 'review'
+      stuckMs      = now - readyForReview
+    } else {
+      currentStage = 'coder'
+      stuckMs      = now - created
+    }
+  }
+
   return {
-    mrId:      mr.id,
-    iid:       mr.iid,
-    title:     mr.title,
-    username:  mr.author?.username,
-    flowType:  isBackend ? 'backend' : readyForMerge ? 'server' : 'unknown',
-    coderMs:   readyForReview ? readyForReview - created                    : null,
-    reviewMs:  (readyForReview && reviewEnd) ? reviewEnd - readyForReview   : null,
-    // QC only exists for Backend (null for Server MRs — excluded from averages)
-    qcMs:      (isBackend && deployUAT && checked) ? checked - deployUAT   : null,
-    deployMs:  (releaseQueue && merged) ? merged - releaseQueue             : null,
-    totalMs:   merged ? merged - created : null,
+    mrId:         mr.id,
+    iid:          mr.iid,
+    title:        mr.title,
+    webUrl:       mr.web_url,
+    username:     mr.author?.username,
+    flowType:     isBackend ? 'backend' : readyForMerge ? 'server' : 'unknown',
+    isOpen,
+    currentStage,
+    stuckMs,
+    coderMs:      readyForReview ? readyForReview - created                    : null,
+    reviewMs:     (readyForReview && reviewEnd) ? reviewEnd - readyForReview   : null,
+    qcMs:         (isBackend && deployUAT && checked) ? checked - deployUAT   : null,
+    deployMs:     (releaseQueue && merged) ? merged - releaseQueue             : null,
+    totalMs:      merged ? merged - created : null,
   }
 }
 
