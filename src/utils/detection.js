@@ -20,7 +20,7 @@ export const DEFAULT_THRESHOLDS = {
   issueClosureDays: 3,            // closed within 3 days of related MR
 }
 
-const CONVENTIONAL_PREFIXES = /^(feat|fix|refactor|chore|docs|style|test|perf|ci|build|revert)(\(.+\))?!?:/i
+const CONVENTIONAL_PREFIXES = /^(feat|fix|refactor|chore|docs|style|test|perf|ci|build|revert|config|security|infra|deploy|release|hotfix|wip)(\(.+\))?!?:/i
 
 // Matches "AI-Agent: claude-sonnet-4-6" or "AI-Agent: gpt-4o" etc.
 const AI_AGENT_TRAILER = /^AI-Agent:\s*\S+/im
@@ -89,7 +89,7 @@ export function extractAITool(message = '') {
   }
 
   // Priority 5: Detailed conventional commit (Antigravity-style)
-  const ccMatch = fl.match(/^(?:feat|fix|refactor|chore|docs|style|test|perf|ci|build|revert)(?:\(.+\))?!?:\s*(.+)/i)
+  const ccMatch = fl.match(/^(?:feat|fix|refactor|chore|docs|style|test|perf|ci|build|revert|config|security|infra|deploy|release|hotfix|wip)(?:\(.+\))?!?:\s*(.+)/i)
   if (ccMatch && ccMatch[1].trim().length >= 40) {
     return 'Antigravity'
   }
@@ -224,7 +224,7 @@ export function isClaudeCommit(commit, avgFilesChanged, thresholds = DEFAULT_THR
   // Definitive: conventional commit with a detailed description (Antigravity-style)
   // e.g. "feat: Implement Redis connection shutdown handler and add new Redis extension options."
   // Short ones like "fix: typo" stay heuristic only
-  const ccMatch = message.trim().match(/^(?:feat|fix|refactor|chore|docs|style|test|perf|ci|build|revert)(?:\(.+\))?!?:\s*(.+)/i)
+  const ccMatch = message.trim().match(/^(?:feat|fix|refactor|chore|docs|style|test|perf|ci|build|revert|config|security|infra|deploy|release|hotfix|wip)(?:\(.+\))?!?:\s*(.+)/i)
   if (ccMatch && ccMatch[1].trim().length >= 40) {
     reasons.push('detailed_conventional_commit')
   }

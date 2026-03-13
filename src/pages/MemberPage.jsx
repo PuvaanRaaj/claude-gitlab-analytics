@@ -173,6 +173,39 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
   const aiIssuesList = sortedIssues.filter(hasAIIssueLabel)
   const manualIssuesList = sortedIssues.filter(i => !hasAIIssueLabel(i))
 
+  function renderCommitRow(commit, isClaudeAssisted, reasons = [], aiTool) {
+    const firstLine = (commit.message || '').split('\n')[0].trim()
+    const date = commit.authored_date || commit.created_at
+    return (
+      <div key={commit.id || commit.short_id} className="px-5 py-3 hover:bg-obs-card/40 transition-colors">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 pt-0.5">
+            {commitSignalBadge(isClaudeAssisted, reasons, aiTool)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-mono text-xs text-obs-text-bright leading-snug truncate" title={firstLine}>
+              {firstLine}
+            </p>
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
+              {commit.web_url
+                ? <a href={commit.web_url} target="_blank" rel="noopener noreferrer" className="font-mono text-[10px] text-obs-cyan hover:underline">{commit.short_id}</a>
+                : <span className="font-mono text-[10px] text-obs-muted">{commit.short_id}</span>}
+              {date && <span className="font-mono text-[10px] text-obs-muted">{new Date(date).toLocaleDateString()}</span>}
+              {commit.stats?.total > 0 && (
+                <span className="font-mono text-[10px] text-obs-muted">
+                  +{commit.stats.additions ?? 0} −{commit.stats.deletions ?? 0}
+                </span>
+              )}
+              {reasons?.length > 0 && (
+                <span className="font-mono text-[10px] text-obs-muted/60">{reasons.slice(0, 2).join(', ')}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   function renderMRRow(mr) {
     const { tool, role, confidence } = parseAILabels(mr.labels || [])
     const allAILabels = [...tool, ...role, ...confidence]
@@ -404,40 +437,40 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
               <div className="flex items-center justify-center h-32">
                 <p className="text-obs-muted text-sm font-mono">No commits</p>
               </div>
+            ) : commitFilter === 'all' ? (
+              /* Grouped: AI section then Manual section */
+              <>
+                {filteredCommits.filter(t => t.isClaudeAssisted).length > 0 && (
+                  <div>
+                    <div className="px-5 py-2.5 flex items-center gap-3 bg-obs-card/30 border-b border-obs-border/40">
+                      <div className="w-1.5 h-1.5 rounded-full bg-obs-cyan" />
+                      <span className="font-mono text-[10px] uppercase tracking-widest text-obs-cyan">
+                        AI Commits ({filteredCommits.filter(t => t.isClaudeAssisted).length})
+                      </span>
+                    </div>
+                    <div className="divide-y divide-obs-border/50">
+                      {filteredCommits.filter(t => t.isClaudeAssisted).slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(({ commit, isClaudeAssisted, reasons = [], aiTool }) => renderCommitRow(commit, isClaudeAssisted, reasons, aiTool))}
+                    </div>
+                  </div>
+                )}
+                {filteredCommits.filter(t => !t.isClaudeAssisted).length > 0 && (
+                  <div>
+                    {filteredCommits.filter(t => t.isClaudeAssisted).length > 0 && <div className="section-divider" />}
+                    <div className="px-5 py-2.5 flex items-center gap-3 bg-obs-card/30 border-b border-obs-border/40">
+                      <div className="w-1.5 h-1.5 rounded-full bg-obs-amber" />
+                      <span className="font-mono text-[10px] uppercase tracking-widest text-obs-amber">
+                        Manual Commits ({filteredCommits.filter(t => !t.isClaudeAssisted).length})
+                      </span>
+                    </div>
+                    <div className="divide-y divide-obs-border/50">
+                      {filteredCommits.filter(t => !t.isClaudeAssisted).slice(0, PAGE_SIZE).map(({ commit, isClaudeAssisted, reasons = [], aiTool }) => renderCommitRow(commit, isClaudeAssisted, reasons, aiTool))}
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="divide-y divide-obs-border/50">
-                {filteredCommits.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(({ commit, isClaudeAssisted, reasons = [], aiTool }) => {
-                  const firstLine = (commit.message || '').split('\n')[0].trim()
-                  const date = commit.authored_date || commit.created_at
-                  return (
-                    <div key={commit.id || commit.short_id} className="px-5 py-3 hover:bg-obs-card/40 transition-colors">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 pt-0.5">
-                          {commitSignalBadge(isClaudeAssisted, reasons, aiTool)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-mono text-xs text-obs-text-bright leading-snug truncate" title={firstLine}>
-                            {firstLine}
-                          </p>
-                          <div className="flex items-center gap-3 mt-1 flex-wrap">
-                            {commit.web_url
-                              ? <a href={commit.web_url} target="_blank" rel="noopener noreferrer" className="font-mono text-[10px] text-obs-cyan hover:underline">{commit.short_id}</a>
-                              : <span className="font-mono text-[10px] text-obs-muted">{commit.short_id}</span>}
-                            {date && <span className="font-mono text-[10px] text-obs-muted">{new Date(date).toLocaleDateString()}</span>}
-                            {commit.stats?.total > 0 && (
-                              <span className="font-mono text-[10px] text-obs-muted">
-                                +{commit.stats.additions ?? 0} −{commit.stats.deletions ?? 0}
-                              </span>
-                            )}
-                            {reasons?.length > 0 && (
-                              <span className="font-mono text-[10px] text-obs-muted/60">{reasons.slice(0, 2).join(', ')}</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
+                {filteredCommits.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(({ commit, isClaudeAssisted, reasons = [], aiTool }) => renderCommitRow(commit, isClaudeAssisted, reasons, aiTool))}
               </div>
             )
           )}

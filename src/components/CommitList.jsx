@@ -27,6 +27,64 @@ function AiBadge({ isClaudeAssisted, reasons = [], aiTool }) {
   )
 }
 
+function CommitRows({ commits }) {
+  return (
+    <div className="divide-y divide-obs-border/50">
+      {commits.map(({ commit, isClaudeAssisted, reasons, aiTool }) => {
+        const firstLine = (commit.message || '').split('\n')[0].trim()
+        const date      = commit.authored_date || commit.created_at
+        return (
+          <div
+            key={commit.id || commit.short_id}
+            className="flex items-center gap-4 px-5 py-3 hover:bg-white/[0.03] transition-colors"
+          >
+            {/* Badge */}
+            <div className="flex-shrink-0 w-20 flex justify-end">
+              <AiBadge isClaudeAssisted={isClaudeAssisted} reasons={reasons} aiTool={aiTool} />
+            </div>
+
+            {/* Message */}
+            <div className="flex-1 min-w-0">
+              <p className="font-mono text-xs text-obs-text-bright truncate leading-snug" title={firstLine}>
+                {firstLine}
+              </p>
+              {reasons?.length > 0 && (
+                <p className="font-mono text-[10px] text-obs-muted mt-0.5" title={reasons.join(', ')}>
+                  {reasons.slice(0, 3).join(' · ')}{reasons.length > 3 ? ` +${reasons.length - 3}` : ''}
+                </p>
+              )}
+            </div>
+
+            {/* Lines changed */}
+            <span className="flex-shrink-0 font-mono text-xs text-obs-muted w-16 text-right">
+              {commit.stats?.total > 0 ? `±${commit.stats.total}` : ''}
+            </span>
+
+            {/* Date */}
+            {date && (
+              <span className="flex-shrink-0 font-mono text-xs text-obs-muted w-24 text-right">
+                {new Date(date).toLocaleDateString()}
+              </span>
+            )}
+
+            {/* Hash link */}
+            <div className="flex-shrink-0 w-20 text-right">
+              {commit.web_url ? (
+                <a href={commit.web_url} target="_blank" rel="noopener noreferrer"
+                  className="font-mono text-xs text-obs-cyan hover:underline">
+                  {commit.short_id}
+                </a>
+              ) : (
+                <span className="font-mono text-xs text-obs-muted">{commit.short_id}</span>
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function CommitList({ taggedCommits = [], loading }) {
   const [page, setPage] = useState(0)
   const [filter, setFilter] = useState('all') // 'all' | 'ai' | 'manual'
@@ -135,67 +193,35 @@ export default function CommitList({ taggedCommits = [], loading }) {
         <div className="flex items-center justify-center h-32">
           <p className="font-mono text-sm text-obs-muted">No commits match this filter</p>
         </div>
-      ) : (
-        <div className="divide-y divide-obs-border/50">
-          {pageCommits.map(({ commit, isClaudeAssisted, reasons, aiTool }) => {
-            const firstLine = (commit.message || '').split('\n')[0].trim()
-            const date      = commit.authored_date || commit.created_at
-            return (
-              <div
-                key={commit.id || commit.short_id}
-                className="flex items-center gap-4 px-5 py-3 hover:bg-white/[0.03] transition-colors"
-              >
-                {/* Badge */}
-                <div className="flex-shrink-0 w-20 flex justify-end">
-                  <AiBadge isClaudeAssisted={isClaudeAssisted} reasons={reasons} aiTool={aiTool} />
-                </div>
-
-                {/* Message */}
-                <div className="flex-1 min-w-0">
-                  <p
-                    className="font-mono text-xs text-obs-text-bright truncate leading-snug"
-                    title={firstLine}
-                  >
-                    {firstLine}
-                  </p>
-                  {reasons?.length > 0 && (
-                    <p className="font-mono text-[10px] text-obs-muted mt-0.5" title={reasons.join(', ')}>
-                      {reasons.slice(0, 3).join(' · ')}{reasons.length > 3 ? ` +${reasons.length - 3}` : ''}
-                    </p>
-                  )}
-                </div>
-
-                {/* Lines changed */}
-                <span className="flex-shrink-0 font-mono text-xs text-obs-muted w-16 text-right">
-                  {commit.stats?.total > 0 ? `±${commit.stats.total}` : ''}
+      ) : filter === 'all' ? (
+        /* Grouped view: AI section then Manual section */
+        <>
+          {pageCommits.filter(t => t.isClaudeAssisted).length > 0 && (
+            <div>
+              <div className="px-5 py-2 flex items-center gap-3 bg-obs-card/30 border-b border-obs-border/40">
+                <div className="w-1.5 h-1.5 rounded-full bg-obs-cyan" />
+                <span className="font-mono text-[10px] uppercase tracking-widest text-obs-cyan">
+                  AI Commits ({taggedCommits.filter(t => t.isClaudeAssisted).length})
                 </span>
-
-                {/* Date */}
-                {date && (
-                  <span className="flex-shrink-0 font-mono text-xs text-obs-muted w-24 text-right">
-                    {new Date(date).toLocaleDateString()}
-                  </span>
-                )}
-
-                {/* Hash link */}
-                <div className="flex-shrink-0 w-20 text-right">
-                  {commit.web_url ? (
-                    <a
-                      href={commit.web_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-mono text-xs text-obs-cyan hover:underline"
-                    >
-                      {commit.short_id}
-                    </a>
-                  ) : (
-                    <span className="font-mono text-xs text-obs-muted">{commit.short_id}</span>
-                  )}
-                </div>
               </div>
-            )
-          })}
-        </div>
+              <CommitRows commits={pageCommits.filter(t => t.isClaudeAssisted)} />
+            </div>
+          )}
+          {pageCommits.filter(t => !t.isClaudeAssisted).length > 0 && (
+            <div>
+              {pageCommits.filter(t => t.isClaudeAssisted).length > 0 && <div className="section-divider" />}
+              <div className="px-5 py-2 flex items-center gap-3 bg-obs-card/30 border-b border-obs-border/40">
+                <div className="w-1.5 h-1.5 rounded-full bg-obs-amber" />
+                <span className="font-mono text-[10px] uppercase tracking-widest text-obs-amber">
+                  Manual Commits ({taggedCommits.filter(t => !t.isClaudeAssisted).length})
+                </span>
+              </div>
+              <CommitRows commits={pageCommits.filter(t => !t.isClaudeAssisted)} />
+            </div>
+          )}
+        </>
+      ) : (
+        <CommitRows commits={pageCommits} />
       )}
 
       {/* Pagination */}
