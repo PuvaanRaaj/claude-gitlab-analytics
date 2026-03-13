@@ -1,18 +1,19 @@
 /**
- * Flow metrics computation from GitLab resource_label_events.
+ * Flow metrics computation from merged label events (resource_label_events + system notes).
  *
  * MR Flow (DO:: labels):
- *   Coder   → created_at to DO::Ready For Review
- *   Review  → DO::Ready For Review to DO::Deploy UAT
- *   QC      → DO::Deploy UAT to DO::Checked
- *   Deploy  → DO::Release Queue to merged_at
- *   Total   → created_at to merged_at
+ *   Coder   → created_at  to  DO::Ready For Review  (added)
+ *   Review  → DO::Ready For Review  to  DO::Deploy UAT  (added)
+ *   QC      → DO::Deploy UAT  to  DO::Checked  (added)
+ *   Deploy  → DO::Release Queue  to  merged_at
+ *   Total   → created_at  to  merged_at
  *
  * Issue Flow (DO:: labels):
- *   Triage       → created_at to DO::Request for Verification
- *   Verification → DO::Request for Verification to DO::Verified
- *   Approval     → DO::Request for Approval to DO::Approved
- *   Total        → created_at to closed_at
+ *   Triage       → created_at  to  DO::Request for Verification  (added)
+ *   Verification → DO::Request for Verification  to  DO::Verified  (added)
+ *   Approval     → DO::Request for Approval  to  DO::Approved  (added)
+ *   Close        → DO::Approved  to  closed_at
+ *   Total        → created_at  to  closed_at
  */
 
 export const MR_STAGES = [
@@ -27,13 +28,22 @@ export const ISSUE_STAGES = [
   { key: 'triageMs',       label: 'Triage',       color: '#00C9FF' },
   { key: 'verificationMs', label: 'Verification', color: '#A78BFA' },
   { key: 'approvalMs',     label: 'Approval',     color: '#F4A024' },
+  { key: 'closeMs',        label: 'Close',        color: '#22C55E' },
   { key: 'totalMs',        label: 'Total',        color: '#94A3B8' },
 ]
 
-/** Return the earliest timestamp (ms) when a label was *added*, or null */
+/**
+ * Return the earliest timestamp (ms) when a label was added.
+ * Case-insensitive match against label.name or the raw label string.
+ */
 function firstAddedAt(events, labelName) {
+  const lc = labelName.toLowerCase().trim()
   const matches = events
-    .filter(e => e.action === 'add' && e.label?.name === labelName)
+    .filter(e => {
+      if (e.action !== 'add') return false
+      const n = (e.label?.name || e.label || '').toLowerCase().trim()
+      return n === lc
+    })
     .map(e => new Date(e.created_at).getTime())
     .filter(t => !isNaN(t))
   return matches.length > 0 ? Math.min(...matches) : null
@@ -46,6 +56,7 @@ export function computeMRFlow(mr, labelEvents = []) {
   const readyForReview = firstAddedAt(labelEvents, 'DO::Ready For Review')
   const deployUAT      = firstAddedAt(labelEvents, 'DO::Deploy UAT')
   const checked        = firstAddedAt(labelEvents, 'DO::Checked')
+               || firstAddedAt(labelEvents, 'DO::Ready For Merge')
   const releaseQueue   = firstAddedAt(labelEvents, 'DO::Release Queue')
 
   return {
@@ -53,10 +64,10 @@ export function computeMRFlow(mr, labelEvents = []) {
     iid:      mr.iid,
     title:    mr.title,
     username: mr.author?.username,
-    coderMs:  readyForReview ? readyForReview - created                     : null,
-    reviewMs: (readyForReview && deployUAT)  ? deployUAT - readyForReview   : null,
-    qcMs:     (deployUAT && checked)         ? checked - deployUAT          : null,
-    deployMs: (releaseQueue && merged)       ? merged - releaseQueue        : null,
+    coderMs:  readyForReview ? readyForReview - created                   : null,
+    reviewMs: (readyForReview && deployUAT) ? deployUAT - readyForReview  : null,
+    qcMs:     (deployUAT && checked)        ? checked - deployUAT         : null,
+    deployMs: (releaseQueue && merged)      ? merged - releaseQueue       : null,
     totalMs:  merged ? merged - created : null,
   }
 }
@@ -75,21 +86,22 @@ export function computeIssueFlow(issue, labelEvents = []) {
     iid:            issue.iid,
     title:          issue.title,
     username:       issue.author?.username,
-    triageMs:       requestVerif  ? requestVerif - created              : null,
-    verificationMs: (requestVerif && verified) ? verified - requestVerif : null,
+    triageMs:       requestVerif  ? requestVerif - created               : null,
+    verificationMs: (requestVerif && verified) ? verified - requestVerif  : null,
     approvalMs:     (requestApprov && approved) ? approved - requestApprov : null,
+    closeMs:        (approved && closed) ? closed - approved              : null,
     totalMs:        closed ? closed - created : null,
   }
 }
 
-/** Average a metric (e.g. 'reviewMs') across an array of flow results, ignoring nulls */
+/** Average a metric across an array of flow results, ignoring nulls */
 export function avgMs(flowArray, key) {
   const vals = flowArray.map(f => f[key]).filter(v => v !== null && v > 0)
   if (!vals.length) return null
   return vals.reduce((s, v) => s + v, 0) / vals.length
 }
 
-/** Format milliseconds → "Xd Yh" or "Xh Ym" */
+/** Format milliseconds → "Xd Yh" / "Xh Ym" / "Xm" */
 export function fmtDur(ms) {
   if (ms === null || ms === undefined || isNaN(ms) || ms <= 0) return '—'
   const totalMinutes = Math.floor(ms / 60000)
