@@ -154,6 +154,41 @@ src/
 
 ---
 
+## Docker
+
+### Quick start
+
+1. Copy the example env file:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your GitLab URL, token, and allowed usernames
+   ```
+
+2. Build and run:
+   ```bash
+   docker compose up -d --build
+   ```
+
+3. Open http://localhost:3000
+
+### Custom port
+```bash
+PORT=8080 docker compose up -d --build
+```
+
+### Build args (bake config into image at build time)
+```bash
+docker build \
+  --build-arg VITE_GITLAB_URL=https://gitlab.mycompany.com \
+  --build-arg VITE_TEAM_ALLOWED_USERS=alice,bob \
+  -t ai-observatory .
+docker run -p 3000:80 ai-observatory
+```
+
+> **Note**: `VITE_GITLAB_TOKEN` is baked into the image at build time. If you want users to enter their own token via the login screen, leave it empty and they will be prompted on first visit.
+
+---
+
 ## License
 
 MIT

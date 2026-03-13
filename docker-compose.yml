@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        VITE_GITLAB_URL: ${VITE_GITLAB_URL:-https://gitlab.com}
+        VITE_GITLAB_TOKEN: ${VITE_GITLAB_TOKEN:-}
+        VITE_TEAM_ALLOWED_USERS: ${VITE_TEAM_ALLOWED_USERS:-}
+    ports:
+      - "${PORT:-3000}:80"
+    restart: unless-stopped
