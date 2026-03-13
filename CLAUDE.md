@@ -91,3 +91,27 @@ git push origin v1.2.0
 ```
 
 The workflow runs on any `v*` tag. The release name and changelog are derived from the tag and commit messages automatically — no manual `gh release create` needed.
+
+## Pipeline Flow Analytics
+
+- Label events fetched via `src/api/labelEvents.js` — merges `resource_label_events` + system notes (deduped by label+action+minute) to work around GitLab API gaps.
+- Flow computed in `src/utils/flowMetrics.js` — `computeMRFlow()` auto-detects Backend (has `DO::Deploy UAT`) vs Server (has `DO::Ready For Merge`) per MR.
+- Hook: `src/hooks/useFlowAnalytics.js` — lazy (only fetches when `enabled=true`), caps at 150 items, 24h cache keyed `flow:mr:v2:{projectId}:{iid}`.
+- UI: `src/components/FlowMetrics.jsx` — team view shows avg stage cards only; member view shows per-user cards; both support clickable drill-down.
+- Adding a new DO:: stage: update `MR_STAGES`/`ISSUE_STAGES` in `flowMetrics.js`, add timing logic in `computeMRFlow`/`computeIssueFlow`, bump cache key version.
+
+## Default Project Selection
+
+- On load, projects whose `path_with_namespace` starts with `backend/`, `server/`, or `mobile/` are auto-selected (`src/App.jsx`).
+- To add a new group: add `|| ns.startsWith('newgroup/')` in the two filter blocks (~lines 95 and 109).
+
+## Bot Filtering
+
+- `KNOWN_BOTS` list and `BOT_PATTERNS` regex live in `src/components/TeamBreakdown.jsx`.
+- Add bot usernames at runtime via `VITE_BOT_USERNAMES=bot1,bot2` env var (no rebuild needed if using onboarding flow).
+
+## Docker / TLS
+
+- Serves HTTPS on port 443 (mapped to host 9999). `docker-entrypoint.sh` auto-generates a self-signed cert if `./certs/cert.pem` is missing.
+- To use a real cert: place `cert.pem` + `key.pem` in `./certs/` before `docker compose up`.
+- `gen-certs.sh [CN]` generates a self-signed cert locally.
