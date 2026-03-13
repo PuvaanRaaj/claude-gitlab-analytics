@@ -29,13 +29,22 @@ const DEFINITIVE_REASONS = ['ai_agent_trailer', 'co_author_trailer', 'risk_level
 
 function buildAuthorData(taggedCommits, memberUsernameMap = new Map()) {
   const norm = s => (s || '').replace(/[\s._-]+/g, '').toLowerCase()
+
+  // Primary dedup key: email (most reliable across name variants like "ameer" vs "AmeerFaisalAdanan")
+  // Fallback: normalised display name when no email is present
+  function authorKey(commit) {
+    if (commit.author_email) return `email:${commit.author_email.toLowerCase()}`
+    return `name:${norm(commit.author_name || 'unknown')}`
+  }
+
   const map = new Map()
   for (const { commit, isClaudeAssisted, reasons = [] } of taggedCommits) {
     const raw = commit.author_name || 'Unknown'
-    const key = norm(raw)
-    if (!map.has(key)) map.set(key, { names: new Set(), total: 0, definitive: 0, heuristic: 0 })
+    const key = authorKey(commit)
+    if (!map.has(key)) map.set(key, { names: new Set(), emails: new Set(), total: 0, definitive: 0, heuristic: 0 })
     const entry = map.get(key)
     entry.names.add(raw)
+    if (commit.author_email) entry.emails.add(commit.author_email.toLowerCase())
     entry.total++
     if (isClaudeAssisted) {
       const isDefinitive = reasons.some(r => DEFINITIVE_REASONS.includes(r))
@@ -43,19 +52,22 @@ function buildAuthorData(taggedCommits, memberUsernameMap = new Map()) {
       else entry.heuristic++
     }
   }
+
   return Array.from(map.entries())
-    .map(([key, e]) => {
-      // Resolve GitLab username: try normalised display name first, then each name variant
+    .map(([, e]) => {
+      // Resolve GitLab username: try all name variants against the member map
+      const nameKey = norm(bestDisplayName(e.names))
       const username =
-        memberUsernameMap.get(key) ||
+        memberUsernameMap.get(nameKey) ||
         [...e.names].reduce((found, n) => found || memberUsernameMap.get(norm(n)), null) ||
         null
       const displayName = username ? `@${username}` : bestDisplayName(e.names)
+      const nameKey2 = norm(bestDisplayName(e.names))
       return {
-        key,
+        key: nameKey2,
         username: username || null,
         author: displayName,
-        displayName: username ? bestDisplayName(e.names) : null, // original name shown in tooltip
+        displayName: username ? bestDisplayName(e.names) : null,
         aliases: e.names.size > 1 ? [...e.names].join(' · ') : null,
         total: e.total,
         definitive: e.definitive,
@@ -176,8 +188,15 @@ function UserModal({ author, taggedCommits, mrs = [], issues = [], onClose }) {
   const [tab, setTab]   = useState('commits')
   const [page, setPage] = useState(0)
 
-  // ── Commits ──
-  const commits     = taggedCommits.filter(t => normalizeAuthor(t.commit.author_name || '') === author.key)
+  // ── Commits — match against all known name aliases for this author ──
+  const normStr = s => (s || '').replace(/[\s._-]+/g, '').toLowerCase()
+  // Build set of all normalised names this author is known by
+  const authorNameKeys = new Set([
+    author.key,
+    ...(author.aliases ? author.aliases.split(' · ').map(normStr) : []),
+    ...(author.displayName ? [normStr(author.displayName)] : []),
+  ])
+  const commits = taggedCommits.filter(t => authorNameKeys.has(normStr(t.commit.author_name || '')))
   const aiCount     = commits.filter(t => t.isClaudeAssisted && t.reasons?.some(r => DEFINITIVE_REASONS.includes(r))).length
   const heurCount   = commits.filter(t => t.isClaudeAssisted && !t.reasons?.some(r => DEFINITIVE_REASONS.includes(r))).length
 
@@ -618,7 +637,10 @@ export default function TeamBreakdown({ taggedCommits = [], mrs = [], issues = [
         <input
           type="text"
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => {
+            setSearch(e.target.value)
+            if (!e.target.value) setShowAll(false)  // clear search → back to top-20 view
+          }}
           placeholder="Search author name…"
           className="w-full mb-3 h-8 px-3 bg-obs-card border border-obs-border rounded-lg font-mono text-xs text-obs-text placeholder-obs-muted/50 focus:outline-none focus:border-obs-cyan transition-colors"
         />
