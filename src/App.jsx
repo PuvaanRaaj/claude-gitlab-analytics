@@ -32,18 +32,27 @@ function hasCredentials() {
   )
 }
 
+// Fallback allowlist — used when neither localStorage nor VITE_TEAM_ALLOWED_USERS is set.
+// Team page is always restricted; never open to everyone by default.
+const DEFAULT_TEAM_ALLOWED_USERS = [
+  'puvaanraaj', 'shangqin', 'chenyaau94', 'fatihi', 'mohdhafeezjohari',
+  'sukwah.lee', 'eserenna', 'apis17', 'jimanx2', 'adryn33129', 'ttj',
+]
+
 /**
  * Returns the list of GitLab usernames allowed to view the Team page.
- * Empty array = no restriction (everyone can see it).
- * Priority: localStorage > VITE_TEAM_ALLOWED_USERS env var
+ * Priority: localStorage > VITE_TEAM_ALLOWED_USERS env var > DEFAULT_TEAM_ALLOWED_USERS
+ * Never returns an empty list — falls back to the hardcoded default so access is always restricted.
  */
 export function getTeamAllowedUsers() {
   const stored = localStorage.getItem('team_allowed_users')
   if (stored !== null) {
-    return stored.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+    const list = stored.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+    return list.length > 0 ? list : DEFAULT_TEAM_ALLOWED_USERS
   }
   const env = import.meta.env.VITE_TEAM_ALLOWED_USERS || ''
-  return env.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+  const list = env.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+  return list.length > 0 ? list : DEFAULT_TEAM_ALLOWED_USERS
 }
 
 export function setTeamAllowedUsers(usernames) {
