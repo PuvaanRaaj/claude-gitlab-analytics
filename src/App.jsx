@@ -320,6 +320,25 @@ export default function App() {
             <div className="flex items-center gap-2 flex-wrap justify-end">
               <ProjectSelector projects={projects} selectedIds={selectedIds} onChange={setSelectedIds} loading={projectsLoading} />
 
+              {/* Refresh button */}
+              <button
+                onClick={retry}
+                disabled={loading}
+                title="Refresh data"
+                className={`h-8 w-8 flex items-center justify-center rounded-lg border transition-all
+                  ${darkMode
+                    ? 'border-obs-border text-obs-muted hover:border-obs-cyan/40 hover:text-obs-cyan disabled:opacity-30'
+                    : 'border-slate-200 text-slate-400 hover:border-sky-300 hover:text-sky-600 disabled:opacity-30'
+                  }`}
+              >
+                <svg
+                  width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  className={loading ? 'animate-spin' : ''}
+                >
+                  <path d="M3 12a9 9 0 1018 0 9 9 0 00-9-9M3 12V6M3 12H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+
               <div className={`flex items-center gap-0.5 border rounded-lg p-0.5 ${darkMode ? 'bg-obs-surface border-obs-border' : 'bg-slate-100 border-slate-200'}`}>
                 {TIME_RANGES.map(r => (
                   <button
@@ -387,16 +406,8 @@ export default function App() {
             {page === 'pipelines'  && <PipelinesPage {...sharedProps} />}
 
             {/* Footer */}
-            <div className="pt-6 pb-2 flex items-center justify-between">
+            <div className="pt-6 pb-2">
               <span className="font-mono text-xs text-obs-muted/40">AI Observatory · GitLab REST API</span>
-              {!loading && (
-                <button onClick={retry} className="font-mono text-xs text-obs-muted hover:text-obs-text transition-colors flex items-center gap-1.5">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                    <path d="M3 12a9 9 0 1018 0 9 9 0 00-9-9M3 12V6M3 12H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                  </svg>
-                  Refresh
-                </button>
-              )}
             </div>
           </div>
         </main>
