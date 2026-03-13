@@ -80,3 +80,14 @@ git commit \
 
 Use `AI-Agent: claude-sonnet-4-6` or `AI-Agent: claude-opus-4-6` depending on which model generated the code.
 
+## Releases
+
+Releases are automated via `.github/workflows/release.yml` — pushing a version tag triggers a GitHub Release with a changelog auto-generated from commits since the previous tag.
+
+```bash
+# Create and push a new release tag
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+The workflow runs on any `v*` tag. The release name and changelog are derived from the tag and commit messages automatically — no manual `gh release create` needed.
