@@ -1,0 +1,8 @@
+# Don't index large/generated directories
+node_modules/
+dist/
+
+# Don't expose secrets to Cursor AI context
+.env
+.env.local
+.env.*.local

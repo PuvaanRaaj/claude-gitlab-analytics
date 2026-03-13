@@ -1,0 +1,151 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Lifted midnight slate — 3 distinct depth layers, all readable */
+  --obs-bg:      #0C0F1A;
+  --obs-surface: #141824;
+  --obs-card:    #1C2333;
+  --obs-border:  #2A3450;
+  --obs-border2: #3A4D70;
+  --obs-cyan:    #00D4FF;
+  --obs-amber:   #F59E0B;
+  --obs-text:    #C8D6F0;
+  --obs-muted:   #7C8DB5;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--obs-border2) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--obs-border2);
+  border-radius: 3px;
+}
+
+html, body {
+  background-color: var(--obs-bg);
+  color: var(--obs-text);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em;
+}
+
+/* Light mode overrides */
+.light {
+  --obs-bg:      #F0F4FB;
+  --obs-surface: #FFFFFF;
+  --obs-card:    #FFFFFF;
+  --obs-border:  #D8E2F0;
+  --obs-border2: #C0CEDE;
+  --obs-cyan:    #0284C7;
+  --obs-amber:   #D97706;
+  --obs-text:    #1E293B;
+  --obs-muted:   #64748B;
+}
+
+.light body, .light html {
+  background-color: var(--obs-bg);
+  color: var(--obs-text);
+}
+
+/* Skeleton — brighter so it's actually visible on dark surfaces */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 0%,
+    rgba(255,255,255,0.10) 50%,
+    rgba(255,255,255,0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+.light .skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(0,0,0,0.04) 0%,
+    rgba(0,0,0,0.09) 50%,
+    rgba(0,0,0,0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+/* Glow dot */
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--obs-cyan);
+  box-shadow: 0 0 8px var(--obs-cyan);
+  animation: statusPulse 2.5s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--obs-cyan); }
+  50%       { opacity: 0.5; box-shadow: 0 0 3px var(--obs-cyan); }
+}
+
+/* Fade up animation */
+.animate-fade-up {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: fadeUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes fadeUp {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Chart tooltip */
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: #1C2333 !important;
+  border: 1px solid #2A3450 !important;
+  border-radius: 10px !important;
+  padding: 10px 14px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+}
+
+.light .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: #FFFFFF !important;
+  border: 1px solid #D8E2F0 !important;
+}
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: rgba(42, 52, 80, 0.7) !important;
+}
+
+.light .recharts-cartesian-grid-horizontal line,
+.light .recharts-cartesian-grid-vertical line {
+  stroke: rgba(216, 226, 240, 0.8) !important;
+}
+
+/* Recharts text labels */
+.recharts-text {
+  fill: #7C8DB5 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 11px !important;
+}
+
+.light .recharts-text {
+  fill: #64748B !important;
+}
