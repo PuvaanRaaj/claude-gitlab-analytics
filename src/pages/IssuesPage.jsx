@@ -34,6 +34,59 @@ function AiLabelChips({ labels = [] }) {
   )
 }
 
+function IssueRow({ issue, isAI, tool }) {
+  return (
+    <div className="px-5 py-3 flex items-start gap-3 hover:bg-obs-card/40 transition-colors group">
+      {/* Issue number */}
+      <span className="font-mono text-xs text-obs-muted w-12 flex-shrink-0 pt-0.5">
+        #{issue.iid}
+      </span>
+
+      {/* State dot */}
+      <span className={`inline-flex w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${issue.state === 'closed' ? 'bg-green-500' : 'bg-obs-amber'}`} />
+
+      {/* Title + labels */}
+      <div className="flex-1 min-w-0">
+        {issue.web_url ? (
+          <a
+            href={issue.web_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-sans text-sm text-obs-text group-hover:text-obs-text-bright hover:text-obs-cyan transition-colors line-clamp-1"
+            title={issue.title}
+          >
+            {issue.title}
+          </a>
+        ) : (
+          <span className="font-sans text-sm text-obs-text group-hover:text-obs-text-bright line-clamp-1">
+            {issue.title}
+          </span>
+        )}
+        <AiLabelChips labels={issue.labels || []} />
+      </div>
+
+      {/* Author */}
+      {issue.author?.username && (
+        <span className="flex-shrink-0 font-mono text-xs text-obs-muted w-28 text-right truncate" title={issue.author.name}>
+          @{issue.author.username}
+        </span>
+      )}
+
+      {/* AI badge */}
+      {isAI && (
+        <span className="flex-shrink-0 text-[10px] font-mono ai-badge-glow px-1.5 py-0.5 rounded">
+          {tool[0] ? tool[0].replace(/^code::/i, '') : 'ai'}
+        </span>
+      )}
+
+      {/* Date */}
+      <span className="font-mono text-xs text-obs-muted flex-shrink-0 w-20 text-right">
+        {formatDate(issue.created_at)}
+      </span>
+    </div>
+  )
+}
+
 export default function IssuesPage({ loading, issues, claudeIssues, currentUser }) {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
@@ -69,37 +122,61 @@ export default function IssuesPage({ loading, issues, claudeIssues, currentUser 
   function handleFilter(f) { setFilter(f); setPage(0) }
   function handleSearch(s) { setSearch(s);  setPage(0) }
 
+  // Split for "all" view section headers
+  const aiPageItems     = pageItems.filter(i => aiIssueIds.has(i.id) || hasAILabel(i.labels))
+  const manualPageItems = pageItems.filter(i => !(aiIssueIds.has(i.id) || hasAILabel(i.labels)))
+
+  // Container border accent based on filter
+  const containerAccent = filter === 'ai'
+    ? 'border-l-[3px] border-l-obs-cyan'
+    : filter === 'manual'
+      ? 'border-l-[3px] border-l-obs-amber'
+      : ''
+
   return (
     <div className="space-y-4">
       {/* Summary cards */}
       {!loading && (
         <div className="grid grid-cols-4 gap-3">
           {[
-            { label: 'Total',  value: issues.length, color: 'text-obs-text-bright' },
-            { label: 'Open',   value: open.length,   color: 'text-obs-amber' },
-            { label: 'Closed', value: closed.length, color: 'text-green-400' },
-            { label: 'Created With AI', value: aiCount,  color: 'text-obs-cyan' },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="bg-obs-surface border border-obs-border rounded-xl p-4 text-center">
-              <div className={`font-mono text-2xl font-semibold ${color} mb-1`}>{value}</div>
-              <div className="font-mono text-xs text-obs-muted">{label}</div>
-            </div>
-          ))}
+            { label: 'Total',  value: issues.length, accent: 'cyan' },
+            { label: 'Open',   value: open.length,   accent: 'amber' },
+            { label: 'Closed', value: closed.length, accent: 'green' },
+            { label: 'Created With AI', value: aiCount, accent: 'cyan' },
+          ].map(({ label, value, accent }) => {
+            const accentMap = {
+              cyan:  { color: '#00C9FF', text: 'text-[#00C9FF]' },
+              amber: { color: '#F4A024', text: 'text-[#F4A024]' },
+              green: { color: '#22C55E', text: 'text-green-400' },
+            }
+            const a = accentMap[accent]
+            return (
+              <div key={label} className="relative bg-obs-surface border border-obs-border rounded-xl p-4 overflow-hidden card-hover">
+                <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-xl" style={{ background: `linear-gradient(90deg, transparent, ${a.color}40, transparent)` }} />
+                <div className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full" style={{ background: a.color, opacity: 0.5 }} />
+                <div className="pl-3 text-center">
+                  <div className={`font-display text-2xl font-semibold ${a.text} mb-1`}>{value}</div>
+                  <div className="font-mono text-xs text-obs-muted">{label}</div>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
       <IssuesChart issues={myIssues} loading={loading} />
 
       {/* Issues table */}
-      <div className="bg-obs-surface border border-obs-border rounded-xl overflow-hidden">
+      <div className={`bg-obs-surface border border-obs-border rounded-xl overflow-hidden ${containerAccent}`}>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-obs-border flex-wrap gap-3">
           <div>
-            <h3 className="font-sans font-semibold text-obs-text-bright text-sm">All Issues</h3>
+            <h3 className="font-display font-semibold text-obs-text-bright text-sm">All Issues</h3>
             <p className="font-mono text-xs text-obs-muted mt-0.5">Issues created in selected period</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-0.5 bg-obs-card border border-obs-border rounded-lg p-0.5">
+            {/* Filter tabs — underline style */}
+            <div className="flex items-center gap-0 border-b border-obs-border">
               {[
                 { val: 'all',    label: 'All' },
                 { val: 'ai',     label: 'AI' },
@@ -108,13 +185,18 @@ export default function IssuesPage({ loading, issues, claudeIssues, currentUser 
                 <button
                   key={val}
                   onClick={() => handleFilter(val)}
-                  className={`px-3 py-1 rounded-md font-mono text-xs transition-all ${
+                  className={`relative px-4 py-2 font-mono text-xs transition-all ${
                     filter === val
-                      ? 'bg-obs-surface text-obs-cyan border border-obs-cyan/30'
+                      ? val === 'ai' ? 'text-obs-cyan' : val === 'manual' ? 'text-obs-amber' : 'text-obs-text-bright'
                       : 'text-obs-muted hover:text-obs-text'
                   }`}
                 >
                   {label}
+                  {filter === val && (
+                    <span className={`absolute bottom-0 left-1 right-1 h-[2px] rounded-full ${
+                      val === 'ai' ? 'bg-obs-cyan' : val === 'manual' ? 'bg-obs-amber' : 'bg-obs-text-bright'
+                    }`} />
+                  )}
                 </button>
               ))}
             </div>
@@ -139,62 +221,50 @@ export default function IssuesPage({ loading, issues, claudeIssues, currentUser 
           </div>
         ) : (
           <>
-            <div className="divide-y divide-obs-border/50">
-              {pageItems.map(issue => {
-                const isAI = aiIssueIds.has(issue.id) || hasAILabel(issue.labels)
-                const { tool } = parseAILabels(issue.labels || [])
-                return (
-                  <div key={issue.id} className="px-5 py-3 flex items-start gap-3 hover:bg-white/[0.02] transition-colors group">
-                    {/* Issue number */}
-                    <span className="font-mono text-xs text-obs-muted w-12 flex-shrink-0 pt-0.5">
-                      #{issue.iid}
-                    </span>
-
-                    {/* State dot */}
-                    <span className={`inline-flex w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${issue.state === 'closed' ? 'bg-green-500' : 'bg-obs-amber'}`} />
-
-                    {/* Title + labels */}
-                    <div className="flex-1 min-w-0">
-                      {issue.web_url ? (
-                        <a
-                          href={issue.web_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-sans text-sm text-obs-text group-hover:text-obs-text-bright hover:text-obs-cyan transition-colors line-clamp-1"
-                          title={issue.title}
-                        >
-                          {issue.title}
-                        </a>
-                      ) : (
-                        <span className="font-sans text-sm text-obs-text group-hover:text-obs-text-bright line-clamp-1">
-                          {issue.title}
-                        </span>
-                      )}
-                      <AiLabelChips labels={issue.labels || []} />
+            {filter === 'all' ? (
+              /* Split view: AI section then Manual section */
+              <>
+                {aiPageItems.length > 0 && (
+                  <div>
+                    <div className="px-5 py-2.5 flex items-center gap-3 bg-obs-card/30 border-b border-obs-border/40">
+                      <div className="w-1.5 h-1.5 rounded-full bg-obs-cyan" />
+                      <span className="font-mono text-[10px] uppercase tracking-widest text-obs-cyan">AI-Created Issues ({aiCount})</span>
                     </div>
-
-                    {/* Author */}
-                    {issue.author?.username && (
-                      <span className="flex-shrink-0 font-mono text-xs text-obs-muted w-28 text-right truncate" title={issue.author.name}>
-                        @{issue.author.username}
-                      </span>
-                    )}
-
-                    {/* AI badge */}
-                    {isAI && (
-                      <span className="flex-shrink-0 text-[10px] font-mono bg-obs-cyan/10 border border-obs-cyan/20 text-obs-cyan px-1.5 py-0.5 rounded">
-                        {tool[0] ? tool[0].replace(/^code::/i, '') : 'ai'}
-                      </span>
-                    )}
-
-                    {/* Date */}
-                    <span className="font-mono text-xs text-obs-muted flex-shrink-0 w-20 text-right">
-                      {formatDate(issue.created_at)}
-                    </span>
+                    <div className="divide-y divide-obs-border/50">
+                      {aiPageItems.map(issue => {
+                        const isAI = true
+                        const { tool } = parseAILabels(issue.labels || [])
+                        return <IssueRow key={issue.id} issue={issue} isAI={isAI} tool={tool} />
+                      })}
+                    </div>
                   </div>
-                )
-              })}
-            </div>
+                )}
+                {manualPageItems.length > 0 && (
+                  <div>
+                    {aiPageItems.length > 0 && <div className="section-divider" />}
+                    <div className="px-5 py-2.5 flex items-center gap-3 bg-obs-card/30 border-b border-obs-border/40">
+                      <div className="w-1.5 h-1.5 rounded-full bg-obs-amber" />
+                      <span className="font-mono text-[10px] uppercase tracking-widest text-obs-amber">Manual Issues ({myIssues.length - aiCount})</span>
+                    </div>
+                    <div className="divide-y divide-obs-border/50">
+                      {manualPageItems.map(issue => {
+                        const { tool } = parseAILabels(issue.labels || [])
+                        return <IssueRow key={issue.id} issue={issue} isAI={false} tool={tool} />
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Filtered view: flat list */
+              <div className="divide-y divide-obs-border/50">
+                {pageItems.map(issue => {
+                  const isAI = aiIssueIds.has(issue.id) || hasAILabel(issue.labels)
+                  const { tool } = parseAILabels(issue.labels || [])
+                  return <IssueRow key={issue.id} issue={issue} isAI={isAI} tool={tool} />
+                })}
+              </div>
+            )}
 
             {/* Pagination */}
             {totalPages > 1 && (

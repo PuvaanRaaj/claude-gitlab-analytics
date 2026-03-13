@@ -5,41 +5,42 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Plus Jakarta Sans', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        sans: ['DM Sans', 'system-ui', 'sans-serif'],
+        mono: ['DM Mono', 'monospace'],
+        display: ['Sora', 'system-ui', 'sans-serif'],
       },
       colors: {
         obs: {
-          bg:       '#0C0F1A',
-          surface:  '#141824',
-          card:     '#1C2333',
-          border:   '#2A3450',
-          border2:  '#3A4D70',
-          cyan:     '#00D4FF',
-          'cyan-dim': '#00A3C4',
-          amber:    '#F59E0B',
+          bg:       '#080B14',
+          surface:  '#0F1420',
+          card:     '#161D2E',
+          border:   '#1E2A42',
+          border2:  '#2A3A5C',
+          cyan:     '#00C9FF',
+          'cyan-dim': '#0099CC',
+          amber:    '#F4A024',
           'amber-dim': '#B45309',
           green:    '#22C55E',
           red:      '#EF4444',
           purple:   '#A78BFA',
-          muted:    '#7C8DB5',
-          text:     '#C8D6F0',
-          'text-bright': '#F0F6FF',
+          muted:    '#5A6E94',
+          text:     '#A8B8D4',
+          'text-bright': '#E8EDF7',
         },
       },
       backgroundImage: {
         'grid-dark': `
-          linear-gradient(rgba(42,52,80,0.35) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(42,52,80,0.35) 1px, transparent 1px)
+          linear-gradient(rgba(30,42,66,0.35) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(30,42,66,0.35) 1px, transparent 1px)
         `,
       },
       backgroundSize: {
         'grid-sm': '24px 24px',
       },
       boxShadow: {
-        'cyan-glow': '0 0 24px rgba(0,212,255,0.2)',
-        'amber-glow': '0 0 24px rgba(245,158,11,0.2)',
-        'card': '0 2px 8px rgba(0,0,0,0.35), 0 0 0 1px rgba(42,52,80,0.6)',
+        'cyan-glow': '0 0 24px rgba(0,201,255,0.2)',
+        'amber-glow': '0 0 24px rgba(244,160,36,0.2)',
+        'card': '0 2px 8px rgba(0,0,0,0.45), 0 0 0 1px rgba(30,42,66,0.6)',
       },
       animation: {
         'fade-up': 'fadeUp 0.5s ease forwards',

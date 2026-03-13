@@ -3,16 +3,16 @@
 @tailwind utilities;
 
 :root {
-  /* Lifted midnight slate — 3 distinct depth layers, all readable */
-  --obs-bg:      #0C0F1A;
-  --obs-surface: #141824;
-  --obs-card:    #1C2333;
-  --obs-border:  #2A3450;
-  --obs-border2: #3A4D70;
-  --obs-cyan:    #00D4FF;
-  --obs-amber:   #F59E0B;
-  --obs-text:    #C8D6F0;
-  --obs-muted:   #7C8DB5;
+  /* Refined Data Intelligence — deeper navy-black palette */
+  --obs-bg:      #080B14;
+  --obs-surface: #0F1420;
+  --obs-card:    #161D2E;
+  --obs-border:  #1E2A42;
+  --obs-border2: #2A3A5C;
+  --obs-cyan:    #00C9FF;
+  --obs-amber:   #F4A024;
+  --obs-text:    #A8B8D4;
+  --obs-muted:   #5A6E94;
 }
 
 * {
@@ -37,11 +37,55 @@
 html, body {
   background-color: var(--obs-bg);
   color: var(--obs-text);
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: 'DM Sans', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.01em;
 }
+
+/* Premium scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1E2A42; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #2A3A5C; }
+
+/* Refined selection */
+::selection { background: rgba(0, 201, 255, 0.15); color: #E8EDF7; }
+
+/* Stat number pulse on load */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.stat-animate { animation: countUp 0.4s ease forwards; }
+
+/* Section divider */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #1E2A42 20%, #1E2A42 80%, transparent);
+  margin: 0;
+}
+
+/* Premium card glow on hover */
+.card-hover {
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.card-hover:hover {
+  border-color: #2A3A5C;
+  box-shadow: 0 0 0 1px rgba(0, 201, 255, 0.04), 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* AI badge gradient */
+.ai-badge-glow {
+  background: linear-gradient(135deg, rgba(0, 201, 255, 0.12), rgba(0, 201, 255, 0.06));
+  border: 1px solid rgba(0, 201, 255, 0.25);
+  color: #00C9FF;
+}
+
+/* Status pill */
+.status-open   { background: rgba(96, 165, 250, 0.1); border: 1px solid rgba(96, 165, 250, 0.25); color: #60A5FA; }
+.status-merged { background: rgba(0, 201, 255, 0.08); border: 1px solid rgba(0, 201, 255, 0.2); color: #00C9FF; }
+.status-closed { background: rgba(34, 197, 94, 0.08); border: 1px solid rgba(34, 197, 94, 0.2); color: #22C55E; }
 
 /* Light mode overrides */
 .light {
@@ -117,11 +161,11 @@ html, body {
 
 /* Chart tooltip */
 .recharts-tooltip-wrapper .recharts-default-tooltip {
-  background: #1C2333 !important;
-  border: 1px solid #2A3450 !important;
+  background: #161D2E !important;
+  border: 1px solid #1E2A42 !important;
   border-radius: 10px !important;
   padding: 10px 14px !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
 }
 
 .light .recharts-tooltip-wrapper .recharts-default-tooltip {
@@ -131,7 +175,7 @@ html, body {
 
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line {
-  stroke: rgba(42, 52, 80, 0.7) !important;
+  stroke: rgba(30, 42, 66, 0.7) !important;
 }
 
 .light .recharts-cartesian-grid-horizontal line,
@@ -141,8 +185,8 @@ html, body {
 
 /* Recharts text labels */
 .recharts-text {
-  fill: #7C8DB5 !important;
-  font-family: 'JetBrains Mono', monospace !important;
+  fill: #5A6E94 !important;
+  font-family: 'DM Mono', monospace !important;
   font-size: 11px !important;
 }
 
