@@ -376,10 +376,8 @@ export default function FlowMetrics({
     )
   }
 
-  // Team table view
-  const perUser = groupFlowsByUser(mrFlows, issueFlows)
-  const completedMRFlows = mrFlows.filter(f => !f.isOpen)
-  const hasData = completedMRFlows.length > 0 || issueFlows.length > 0
+  // Team view — average cards only (no per-user table)
+  const hasData = mrFlows.length > 0 || issueFlows.length > 0
 
   if (!hasData && !mrFlows.some(f => f.isOpen)) {
     return (
@@ -389,110 +387,39 @@ export default function FlowMetrics({
     )
   }
 
-  const thCls = 'px-4 py-2.5 font-mono text-[10px] uppercase tracking-widest text-obs-muted text-center whitespace-nowrap'
-  const thNameCls = 'px-4 py-2.5 font-mono text-[10px] uppercase tracking-widest text-obs-muted text-left'
-
   return (
-    <div className="space-y-5">
-      {/* Currently in-progress MRs — always shown first */}
-      <InProgressMRs mrFlows={mrFlows} />
+    <div className="space-y-4">
+      {hasData && (
+        <>
+          {/* Legend */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <span className="font-mono text-[10px] text-green-400">● &lt; 1d  OK</span>
+            <span className="font-mono text-[10px] text-obs-amber">● 1–3d  slow</span>
+            <span className="font-mono text-[10px] text-red-400">● &gt; 3d  blocked</span>
+          </div>
 
-      {!hasData && (
-        <p className="font-mono text-xs text-obs-muted">
-          No completed MRs / issues with DO:: labels yet — averages will appear as data is merged.
-        </p>
+          {/* Team average cards — same MemberStageCards, clickable drill-down included */}
+          {mrFlows.length > 0 && (
+            <MemberStageCards
+              flows={mrFlows}
+              stages={MR_STAGES}
+              title="MR Flow (Team Avg)"
+              count={mrFlows.length}
+              accentColor="#00C9FF"
+            />
+          )}
+          {issueFlows.length > 0 && (
+            <MemberStageCards
+              flows={issueFlows}
+              stages={ISSUE_STAGES}
+              title="Issue Flow (Team Avg)"
+              count={issueFlows.length}
+              accentColor="#A78BFA"
+              isIssue
+            />
+          )}
+        </>
       )}
-
-      {hasData && <>
-      {/* Legend */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <span className="font-mono text-[10px] text-green-400">● &lt; 1d  OK</span>
-        <span className="font-mono text-[10px] text-obs-amber">● 1–3d  slow</span>
-        <span className="font-mono text-[10px] text-red-400">● &gt; 3d  blocked</span>
-      </div>
-
-      {/* Scrollable table */}
-      <div className="overflow-x-auto rounded-xl border border-obs-border">
-        <table className="w-full border-collapse">
-          <thead className="bg-obs-card/50 border-b border-obs-border">
-            <tr>
-              <th className={thNameCls} rowSpan={2}>Member</th>
-              <th colSpan={MR_STAGES.length + 1} className="px-4 pt-2.5 pb-1 font-mono text-[10px] uppercase tracking-widest text-obs-cyan text-center border-b border-obs-border/30">
-                MR Flow
-              </th>
-              <th colSpan={ISSUE_STAGES.length + 1} className="px-4 pt-2.5 pb-1 font-mono text-[10px] uppercase tracking-widest text-purple-400 text-center border-b border-obs-border/30">
-                Issue Flow
-              </th>
-            </tr>
-            <tr className="bg-obs-card/30">
-              {MR_STAGES.map(s => <th key={s.key} className={thCls}>{s.label}</th>)}
-              <th className={thCls}>#</th>
-              {ISSUE_STAGES.map(s => <th key={s.key} className={thCls}>{s.label}</th>)}
-              <th className={thCls}>#</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...perUser.entries()]
-              .sort((a, b) => (b[1].mrFlows.length + b[1].issueFlows.length) - (a[1].mrFlows.length + a[1].issueFlows.length))
-              .map(([username, { mrFlows: uMR, issueFlows: uIssue }]) => (
-                <UserFlowRow key={username} username={username} userMRFlows={uMR} userIssueFlows={uIssue} />
-              ))
-            }
-            <TeamAvgRow mrFlows={mrFlows} issueFlows={issueFlows} />
-          </tbody>
-        </table>
-      </div>
-
-      {/* Stage bars for team */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {mrFlows.length > 0 && (
-          <div className="bg-obs-surface border border-obs-border rounded-xl p-4">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-obs-cyan mb-3">MR Stage Breakdown (Team Avg)</p>
-            <div className="space-y-2">
-              {MR_STAGES.filter(s => s.key !== 'totalMs').map(s => {
-                const val = avgMs(mrFlows, s.key)
-                const totalVal = avgMs(mrFlows, 'totalMs')
-                const pct = (val && totalVal) ? Math.round((val / totalVal) * 100) : 0
-                return (
-                  <div key={s.key}>
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="font-mono text-[10px] text-obs-muted">{s.label}</span>
-                      <span className={`font-mono text-[11px] ${stageColor(val)}`}>{fmtDur(val)}</span>
-                    </div>
-                    <div className="h-1.5 bg-obs-card rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: s.color, opacity: 0.8 }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-        {issueFlows.length > 0 && (
-          <div className="bg-obs-surface border border-obs-border rounded-xl p-4">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-purple-400 mb-3">Issue Stage Breakdown (Team Avg)</p>
-            <div className="space-y-2">
-              {ISSUE_STAGES.filter(s => s.key !== 'totalMs').map(s => {
-                const val = avgMs(issueFlows, s.key)
-                const totalVal = avgMs(issueFlows, 'totalMs')
-                const pct = (val && totalVal) ? Math.round((val / totalVal) * 100) : 0
-                return (
-                  <div key={s.key}>
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="font-mono text-[10px] text-obs-muted">{s.label}</span>
-                      <span className={`font-mono text-[11px] ${stageColor(val)}`}>{fmtDur(val)}</span>
-                    </div>
-                    <div className="h-1.5 bg-obs-card rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: s.color, opacity: 0.8 }} />
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-      </>}
     </div>
   )
 }

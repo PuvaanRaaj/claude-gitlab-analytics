@@ -22,6 +22,100 @@ function fmtDuration(ms) {
   return `${totalMinutes}m`
 }
 
+function BurnRatePanel({ issues, loading }) {
+  const opened = (issues || []).length
+  const closed  = (issues || []).filter(i => i.state === 'closed').length
+  const net     = closed - opened
+  const total   = opened + closed
+  const burnPct = opened > 0 ? Math.round((closed / opened) * 100) : 0
+  const closedBarW = total > 0 ? (closed / total) * 100 : 0
+  const openedBarW = total > 0 ? (opened / total) * 100 : 0
+
+  return (
+    <div className="bg-obs-surface border border-obs-border rounded-xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-obs-border">
+        <h3 className="font-display font-semibold text-obs-text-bright text-sm">Issue Burn Rate</h3>
+        <p className="font-mono text-xs text-obs-muted mt-0.5">Issues opened vs closed · in selected period</p>
+      </div>
+      <div className="p-5">
+        {loading ? (
+          <div className="space-y-2">
+            <div className="skeleton h-8 w-full rounded" />
+            <div className="skeleton h-4 w-2/3 rounded" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Stat row */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-obs-card border border-obs-border rounded-lg px-4 py-3 text-center">
+                <div className="font-mono text-xl font-bold text-obs-amber">{opened.toLocaleString()}</div>
+                <div className="font-mono text-[10px] text-obs-muted mt-0.5 uppercase tracking-widest">Opened</div>
+              </div>
+              <div className="bg-obs-card border border-obs-border rounded-lg px-4 py-3 text-center">
+                <div className="font-mono text-xl font-bold text-green-400">{closed.toLocaleString()}</div>
+                <div className="font-mono text-[10px] text-obs-muted mt-0.5 uppercase tracking-widest">Closed</div>
+              </div>
+              <div className="bg-obs-card border border-obs-border rounded-lg px-4 py-3 text-center">
+                <div className={`font-mono text-xl font-bold ${net >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {net >= 0 ? '+' : ''}{net.toLocaleString()}
+                </div>
+                <div className="font-mono text-[10px] text-obs-muted mt-0.5 uppercase tracking-widest">Net</div>
+              </div>
+            </div>
+
+            {/* Stacked bar chart */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-mono text-[10px] text-obs-muted">Closed vs Opened</span>
+                <span className={`font-mono text-xs font-semibold ${burnPct >= 100 ? 'text-green-400' : burnPct >= 70 ? 'text-obs-amber' : 'text-red-400'}`}>
+                  {burnPct}% burn rate
+                </span>
+              </div>
+              {/* Closed bar */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-14 text-right font-mono text-[10px] text-green-400 flex-shrink-0">Closed</div>
+                  <div className="flex-1 h-5 bg-obs-card rounded overflow-hidden">
+                    <div
+                      className="h-full bg-green-500/70 rounded transition-all duration-700 flex items-center justify-end pr-2"
+                      style={{ width: `${closedBarW}%` }}
+                    >
+                      {closedBarW > 15 && (
+                        <span className="font-mono text-[10px] text-white/80">{closed}</span>
+                      )}
+                    </div>
+                  </div>
+                  {closedBarW <= 15 && <span className="font-mono text-[10px] text-green-400 w-8">{closed}</span>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-14 text-right font-mono text-[10px] text-obs-amber flex-shrink-0">Opened</div>
+                  <div className="flex-1 h-5 bg-obs-card rounded overflow-hidden">
+                    <div
+                      className="h-full bg-obs-amber/60 rounded transition-all duration-700 flex items-center justify-end pr-2"
+                      style={{ width: `${openedBarW}%` }}
+                    >
+                      {openedBarW > 15 && (
+                        <span className="font-mono text-[10px] text-white/80">{opened}</span>
+                      )}
+                    </div>
+                  </div>
+                  {openedBarW <= 15 && <span className="font-mono text-[10px] text-obs-amber w-8">{opened}</span>}
+                </div>
+              </div>
+              {/* Status label */}
+              <p className="font-mono text-[10px] text-obs-muted pt-1">
+                {net >= 0
+                  ? `Burning down ↓ — ${net} more closed than opened`
+                  : `Accumulating ↑ — ${Math.abs(net)} more opened than closed`}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function TeamPage({ loading, taggedCommits, projects, claudeLines, manualLines, memberUsernameMap, mrs, issues, claudeMRs, claudeIssues, onSelectMember }) {
   const [flowEnabled, setFlowEnabled] = useState(false)
   const { mrFlows, issueFlows, loading: flowLoading, fetched } = useFlowAnalytics(mrs, issues, flowEnabled)
@@ -159,6 +253,8 @@ export default function TeamPage({ loading, taggedCommits, projects, claudeLines
           </div>
         )}
       </div>
+
+      <BurnRatePanel issues={issues} loading={loading} />
 
       <TeamBreakdown    taggedCommits={taggedCommits} mrs={mrs} issues={issues} loading={loading} memberUsernameMap={memberUsernameMap} onSelectMember={onSelectMember} />
       <ProjectBreakdown taggedCommits={taggedCommits} projects={projects} loading={loading} />
