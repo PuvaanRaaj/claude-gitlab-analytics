@@ -23,6 +23,9 @@ None of the major AI coding assistants offer native GitLab integration for track
 - **MR & Issue attribution** — label-based detection only (no false positives from long GitLab templates)
 - **Fully AI Generated vs Partially AI Assisted** cards on the MRs page
 - **Click any team member** to drill into their commits, AI MRs, and AI issues
+- **Pipeline Flow Analytics** — stage-by-stage timing (Coder → Review → QC → Deploy) with clickable drill-down per stage; auto-detects Backend vs Server repo flow via `DO::` labels
+- **Issue Burn Rate** — opened vs closed chart with burn rate %, net delta, and accumulating/burning-down indicator
+- **In-progress MR tracker** — open MRs sorted by how long they've been stuck at each stage, with colour-coded urgency
 - **Team page access control** — restrict visibility to specific GitLab usernames
 - **PDF export** of team adoption report
 - **No backend** — pure React SPA, connects directly to your GitLab via a personal access token
@@ -156,6 +159,8 @@ src/
 
 ## Docker
 
+Serves over **HTTPS on port 9999** (`https://your-host:9999`). TLS cert is auto-generated at container startup if none is provided.
+
 ### Quick start
 
 1. Copy the example env file:
@@ -169,11 +174,23 @@ src/
    docker compose up -d --build
    ```
 
-3. Open http://localhost:3000
+3. Open `https://localhost:9999` (accept the self-signed cert warning)
 
-### Custom port
+### Bring your own cert (optional)
+
+Place your cert and key in `./certs/` before starting — the container will use them instead of generating a self-signed one:
+
 ```bash
-PORT=8080 docker compose up -d --build
+cp /path/to/your.crt certs/cert.pem
+cp /path/to/your.key certs/key.pem
+docker compose up -d --build
+```
+
+Or generate a fresh self-signed cert with the included helper:
+
+```bash
+./gen-certs.sh           # CN=localhost
+./gen-certs.sh mydomain  # custom CN
 ```
 
 ### Build args (bake config into image at build time)
@@ -182,10 +199,23 @@ docker build \
   --build-arg VITE_GITLAB_URL=https://gitlab.mycompany.com \
   --build-arg VITE_TEAM_ALLOWED_USERS=alice,bob \
   -t ai-observatory .
-docker run -p 3000:80 ai-observatory
+docker run -p 9999:443 ai-observatory
 ```
 
 > **Note**: `VITE_GITLAB_TOKEN` is baked into the image at build time. If you want users to enter their own token via the login screen, leave it empty and they will be prompted on first visit.
+
+---
+
+## Releases
+
+Releases are automated via GitHub Actions. To cut a new release use the `/release` slash command in Claude Code, or manually:
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+GitHub Actions will create the release with a changelog auto-generated from commits since the previous tag.
 
 ---
 
