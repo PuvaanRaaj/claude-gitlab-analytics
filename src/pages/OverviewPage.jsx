@@ -11,12 +11,16 @@ import ActivityDonut from '../components/ActivityDonut'
 export default function OverviewPage({
   loading, since, until,
   totalMRs, totalIssues,
-  claudeMRs, usageBreakdown, toolBreakdown,
+  claudeMRs: claudeMRsAll, myClaudeMRs, myMergedMRs,
+  usageBreakdown, toolBreakdown,
   mergedMRs, closedIssues, avgReviewHours,
   myClaudeLines, myManualLines,
   myCommits, myTaggedCommits, myClaudeCommits, myClaudeCommitIds,
   currentUser,
 }) {
+  // Use personal MRs if available (after scope=all change), fall back to all
+  const claudeMRs   = myClaudeMRs   ?? claudeMRsAll ?? []
+  const myMerged    = myMergedMRs   ?? mergedMRs    ?? []
   const totalCommits  = myCommits?.length ?? 0
   const claudeCommits = myClaudeCommits ?? []
   const claudeCommitIds = myClaudeCommitIds ?? new Set()
@@ -54,9 +58,9 @@ export default function OverviewPage({
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         <MetricCard label="My Commits"      value={loading ? null : totalCommits}    sub={`${claudeCommits.length} AI-assisted`}                   accent="cyan"   loading={loading} delay={0}   icon="⌥" />
         <MetricCard label="AI %"            value={loading ? null : `${aiPct}%`}     sub="of my commits"                                            accent="cyan"   loading={loading} delay={60}  icon="◈" />
-        <MetricCard label="Merge Requests"  value={loading ? null : totalMRs}        sub={`${mergedMRs.length} merged`}                            accent="purple" loading={loading} delay={120} icon="⊕" />
+        <MetricCard label="Merge Requests"  value={loading ? null : totalMRs}        sub={`${myMerged.length} merged`}                            accent="purple" loading={loading} delay={120} icon="⊕" />
         <MetricCard label="Issues resolved" value={loading ? null : closedIssues}    sub={`via AI MRs · ${totalIssues} total`}                     accent="green"  loading={loading} delay={180} icon="✓" />
-        <MetricCard label="Avg review"      value={loading ? null : avgReviewHours > 0 ? `${avgReviewHours}h` : '—'} sub={`${mergedMRs.length} merged MRs`} accent="amber" loading={loading} delay={240} icon="⏱" />
+        <MetricCard label="Avg review"      value={loading ? null : avgReviewHours > 0 ? `${avgReviewHours}h` : '—'} sub={`${myMerged.length} merged MRs`} accent="amber" loading={loading} delay={240} icon="⏱" />
         <MetricCard label="Lines via AI"    value={loading ? null : aiLines > 0 ? fmtLines(aiLines) : '—'}
           sub={aiLines > 0 ? `+${claudeLines.additions.toLocaleString()} / −${claudeLines.deletions.toLocaleString()}` : 'no stats'}
           accent="green" loading={loading} delay={300} icon="±" />

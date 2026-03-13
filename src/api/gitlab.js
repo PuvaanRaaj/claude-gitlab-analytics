@@ -93,7 +93,7 @@ export async function fetchMergeRequests(projectId, since, until) {
   const mrs = await paginateAll(`/projects/${encodeURIComponent(projectId)}/merge_requests`, {
     created_after: since,
     created_before: until,
-    scope: 'created_by_me',
+    scope: 'all',
     state: 'all',
     with_labels_details: true,
   })
@@ -107,7 +107,7 @@ export async function fetchIssues(projectId, since, until) {
   return paginateAll(`/projects/${encodeURIComponent(projectId)}/issues`, {
     created_after: since,
     created_before: until,
-    scope: 'created_by_me',
+    scope: 'all',
     state: 'all',
     with_labels_details: true,
   })

@@ -156,18 +156,37 @@ export default function App() {
     avgFilesChanged, claudeLines, manualLines,
   } = useClaudeDetection(commits, mrs, issues, thresholds)
 
-  // Derived metrics
+  // All merged MRs (team-wide) — used by Team page
   const mergedMRs = mrs.filter(m => m.state === 'merged')
-  const avgReviewHours = mergedMRs.length > 0
-    ? Math.round(mergedMRs.reduce((s, m) => s + (reviewDurationHours(m) || 0), 0) / mergedMRs.length)
+
+  // Personal MRs — filtered to current user for Overview metrics
+  function isMyMR(mr) {
+    if (!currentUser) return true
+    return mr.author?.username === currentUser.username ||
+           mr.author?.id === currentUser.id
+  }
+  const myMRs        = mrs.filter(isMyMR)
+  const myMergedMRs  = myMRs.filter(m => m.state === 'merged')
+  const myClaudeMRs  = claudeMRs.filter(t => isMyMR(t.mr))
+  const avgReviewHours = myMergedMRs.length > 0
+    ? Math.round(myMergedMRs.reduce((s, m) => s + (reviewDurationHours(m) || 0), 0) / myMergedMRs.length)
     : 0
 
-  const aiMergedDescs = claudeMRs.filter(t => t.mr.state === 'merged').map(t => t.mr.description || '')
+  const aiMergedDescs = myClaudeMRs.filter(t => t.mr.state === 'merged').map(t => t.mr.description || '')
   const aiClosedNums  = new Set(
     aiMergedDescs.flatMap(d => [...d.matchAll(/(?:closes?|fixes?|resolves?)\s+#(\d+)/gi)].map(m => parseInt(m[1], 10)))
   )
-  const aiClosedIds = new Set(claudeIssues.filter(t => t.issue.state === 'closed').map(t => t.issue.iid))
-  const closedIssues = issues.filter(i => i.state === 'closed' && (aiClosedNums.has(i.iid) || aiClosedIds.has(i.iid))).length
+  const myClaudeIssues = claudeIssues.filter(t => {
+    if (!currentUser) return true
+    return t.issue.author?.username === currentUser.username ||
+           t.issue.author?.id === currentUser.id
+  })
+  const aiClosedIds = new Set(myClaudeIssues.filter(t => t.issue.state === 'closed').map(t => t.issue.iid))
+  const closedIssues = issues.filter(i =>
+    isMyMR({ author: i.author }) &&
+    i.state === 'closed' &&
+    (aiClosedNums.has(i.iid) || aiClosedIds.has(i.iid))
+  ).length
 
   function handleRangeClick(val) {
     if (val === 'custom') { setShowCustom(true) }
@@ -232,14 +251,15 @@ export default function App() {
     usageBreakdown, toolBreakdown,
     avgFilesChanged, claudeLines, manualLines,
     mergedMRs, closedIssues,
-    totalIssues: issues.length, totalMRs: mrs.length,
+    totalIssues: issues.length, totalMRs: myMRs.length,
     avgReviewHours,
     projects,
     currentUser,
     memberUsernameMap,
-    // Personal (my) commit data — used by OverviewPage
+    // Personal (my) data — used by OverviewPage
     myCommits, myTaggedCommits, myClaudeCommits, myClaudeCommitIds,
     myClaudeLines, myManualLines,
+    myClaudeMRs, myMergedMRs,
   }
 
   const PAGE_TITLES = {
