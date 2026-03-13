@@ -94,7 +94,7 @@ export default function App() {
       const defaultIds = cached
         .filter(p => {
           const ns = p.path_with_namespace?.toLowerCase() || ''
-          return ns.startsWith('backend/') || ns.startsWith('server/')
+          return ns.startsWith('backend/') || ns.startsWith('server/') || ns.startsWith('mobile/')
         })
         .map(p => p.id)
       setSelectedIds(defaultIds.length > 0 ? defaultIds : cached.slice(0, 3).map(p => p.id))
@@ -108,7 +108,7 @@ export default function App() {
         const defaultIds = ps
           .filter(p => {
             const ns = p.path_with_namespace?.toLowerCase() || ''
-            return ns.startsWith('backend/') || ns.startsWith('server/')
+            return ns.startsWith('backend/') || ns.startsWith('server/') || ns.startsWith('mobile/')
           })
           .map(p => p.id)
         setSelectedIds(defaultIds.length > 0 ? defaultIds : ps.slice(0, 3).map(p => p.id))
