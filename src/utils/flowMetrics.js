@@ -119,11 +119,19 @@ export function computeMRFlow(mr, labelEvents = []) {
     isOpen,
     currentStage,
     stuckMs,
-    coderMs:      coderEnd   ? coderEnd - created                       : null,
+    coderMs:      coderEnd   ? coderEnd - created                              : null,
     reviewMs:     (readyForReview && reviewEndT) ? reviewEndT - readyForReview : null,
     qcMs:         (isBackend && deployUAT && qcEndT)  ? qcEndT - deployUAT    : null,
     deployMs:     (deployStart && deployEndT) ? deployEndT - deployStart       : null,
     totalMs:      merged ? merged - created : isOpen ? now - created : null,
+    // Stage entry timestamps — used for drill-down "assigned to stage on X date"
+    _enter: {
+      coder:  created,
+      review: readyForReview,
+      qc:     deployUAT,
+      deploy: deployStart,
+      total:  created,
+    },
   }
 }
 
@@ -140,12 +148,21 @@ export function computeIssueFlow(issue, labelEvents = []) {
     issueId:        issue.id,
     iid:            issue.iid,
     title:          issue.title,
+    webUrl:         issue.web_url,
     username:       issue.author?.username,
     triageMs:       requestVerif  ? requestVerif - created               : null,
     verificationMs: (requestVerif && verified) ? verified - requestVerif  : null,
     approvalMs:     (requestApprov && approved) ? approved - requestApprov : null,
     closeMs:        (approved && closed) ? closed - approved              : null,
     totalMs:        closed ? closed - created : null,
+    // Stage entry timestamps
+    _enter: {
+      triage:       created,
+      verification: requestVerif,
+      approval:     requestApprov,
+      close:        approved,
+      total:        created,
+    },
   }
 }
 

@@ -4,6 +4,7 @@
  * Usage (Team):    <FlowMetrics mrFlows={...} issueFlows={...} loading={...} showTeamTable />
  * Usage (Member):  <FlowMetrics mrFlows={...} issueFlows={...} loading={...} memberUsername="foo" />
  */
+import { useState } from 'react'
 import { MR_STAGES, ISSUE_STAGES, avgMs, fmtDur, groupFlowsByUser } from '../utils/flowMetrics'
 
 const STAGE_ALERT_MS = 3 * 24 * 60 * 60 * 1000  // 3 days
@@ -95,14 +96,99 @@ function UserFlowRow({ username, userMRFlows, userIssueFlows }) {
   )
 }
 
-/** Compact single-user stage cards for MemberPage */
-function MemberStageCards({ flows, stages, title, count, accentColor }) {
+/** Drill-down panel shown when a stage card is clicked */
+function StageDrillDown({ flows, stageKey, stageLabel, enterKey, isIssue }) {
+  // Only include flows that have a non-null value for this stage
+  const items = flows
+    .filter(f => f[stageKey] !== null && f[stageKey] > 0)
+    .sort((a, b) => b[stageKey] - a[stageKey])
+
+  if (!items.length) return (
+    <div className="mt-2 px-4 py-3 bg-obs-card/40 rounded-lg border border-obs-border/40">
+      <p className="font-mono text-xs text-obs-muted">No data for this stage yet.</p>
+    </div>
+  )
+
+  return (
+    <div className="mt-2 rounded-lg border border-obs-border/60 overflow-hidden">
+      <div className="px-4 py-2 bg-obs-card/50 border-b border-obs-border/40 flex items-center justify-between">
+        <span className="font-mono text-[10px] uppercase tracking-widest text-obs-muted">
+          {stageLabel} · {items.length} {isIssue ? 'issue' : 'MR'}{items.length !== 1 ? 's' : ''}
+        </span>
+        <span className="font-mono text-[10px] text-obs-muted">sorted by longest first</span>
+      </div>
+      <div className="divide-y divide-obs-border/30 max-h-64 overflow-y-auto">
+        {items.map((f, i) => {
+          const enterTs = f._enter?.[enterKey]
+          const enterDate = enterTs ? new Date(enterTs).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : null
+          const ms = f[stageKey]
+          const iid = f.iid
+          const webUrl = f.webUrl
+          const title = f.title
+          return (
+            <div key={f.mrId || f.issueId || i} className="flex items-center gap-3 px-4 py-2.5 hover:bg-obs-card/30 transition-colors">
+              {/* Duration */}
+              <span className={`flex-shrink-0 w-16 font-mono text-xs font-semibold text-right tabular-nums ${stageColor(ms)}`}>
+                {fmtDur(ms)}
+              </span>
+              {/* Entered date */}
+              <span className="flex-shrink-0 font-mono text-[10px] text-obs-muted w-28">
+                {enterDate ? `from ${enterDate}` : ''}
+              </span>
+              {/* Open badge */}
+              {f.isOpen && (
+                <span className="flex-shrink-0 font-mono text-[9px] px-1 py-0.5 rounded border border-obs-amber/30 text-obs-amber bg-obs-amber/10">
+                  open
+                </span>
+              )}
+              {/* MR/Issue link */}
+              <div className="flex-1 min-w-0">
+                {webUrl ? (
+                  <a href={webUrl} target="_blank" rel="noopener noreferrer"
+                    className="font-mono text-xs text-obs-text hover:text-obs-cyan transition-colors truncate block"
+                    title={title}>
+                    !{iid} {title}
+                  </a>
+                ) : (
+                  <span className="font-mono text-xs text-obs-text truncate block">!{iid} {title}</span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// Maps stageKey → the _enter key that stores the stage start timestamp
+const STAGE_ENTER_KEY = {
+  coderMs:        'coder',
+  reviewMs:       'review',
+  qcMs:           'qc',
+  deployMs:       'deploy',
+  totalMs:        'total',
+  triageMs:       'triage',
+  verificationMs: 'verification',
+  approvalMs:     'approval',
+  closeMs:        'close',
+}
+
+/** Compact single-user stage cards for MemberPage — clickable for drill-down */
+function MemberStageCards({ flows, stages, title, count, accentColor, isIssue }) {
+  const [activeStage, setActiveStage] = useState(null)
   const avgs = stages.map(s => ({ ...s, val: avgMs(flows, s.key) }))
 
   // Flow type breakdown (only for MR flows)
   const backendCount = flows.filter(f => f.flowType === 'backend').length
   const serverCount  = flows.filter(f => f.flowType === 'server').length
-  const showTypeSplit = (backendCount > 0 || serverCount > 0) && (backendCount + serverCount === count)
+  const showTypeSplit = !isIssue && (backendCount > 0 || serverCount > 0) && (backendCount + serverCount === count)
+
+  function handleCardClick(key) {
+    setActiveStage(prev => prev === key ? null : key)
+  }
+
+  const activeStageInfo = activeStage ? stages.find(s => s.key === activeStage) : null
 
   return (
     <div>
@@ -124,16 +210,41 @@ function MemberStageCards({ flows, stages, title, count, accentColor }) {
             )}
           </div>
         )}
+        {activeStage && (
+          <span className="font-mono text-[10px] text-obs-muted/60">click card again to close</span>
+        )}
       </div>
       <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-        {avgs.map(({ key, label, val }) => (
-          <div key={key} className="bg-obs-card border border-obs-border rounded-lg px-3 py-2 text-center">
-            <div className={`font-mono text-sm font-semibold ${stageColor(val)}`}>{fmtDur(val)}</div>
-            <div className="font-mono text-[10px] text-obs-muted mt-0.5">{label}</div>
-          </div>
-        ))}
+        {avgs.map(({ key, label, val }) => {
+          const isActive = activeStage === key
+          return (
+            <button
+              key={key}
+              onClick={() => handleCardClick(key)}
+              className={`bg-obs-card border rounded-lg px-3 py-2.5 text-center transition-all hover:border-obs-cyan/40 hover:bg-obs-card/80 cursor-pointer ${
+                isActive ? 'border-obs-cyan/60 ring-1 ring-obs-cyan/20' : 'border-obs-border'
+              }`}
+            >
+              <div className={`font-mono text-sm font-semibold ${stageColor(val)}`}>{fmtDur(val)}</div>
+              <div className="font-mono text-[10px] text-obs-muted mt-0.5">{label}</div>
+              {val !== null && (
+                <div className="font-mono text-[9px] text-obs-muted/40 mt-1">click to expand</div>
+              )}
+            </button>
+          )
+        })}
       </div>
       <StageBar flows={flows} stages={stages} />
+      {/* Drill-down panel */}
+      {activeStage && activeStageInfo && (
+        <StageDrillDown
+          flows={flows}
+          stageKey={activeStage}
+          stageLabel={activeStageInfo.label}
+          enterKey={STAGE_ENTER_KEY[activeStage] || activeStage}
+          isIssue={!!isIssue}
+        />
+      )}
     </div>
   )
 }
@@ -258,6 +369,7 @@ export default function FlowMetrics({
             title="Issue Flow"
             count={myIssueFlows.length}
             accentColor="#A78BFA"
+            isIssue
           />
         )}
       </div>
