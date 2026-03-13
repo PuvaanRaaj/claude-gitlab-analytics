@@ -19,9 +19,9 @@ export function useClaudeDetection(commits, mrs, issues, thresholds) {
       return { commit, ...result }
     })
 
-    // Tag MRs
+    // Tag MRs — label/trailer-only detection, no heuristics
     const taggedMRs = mrs.map(mr => {
-      const result = isClaudeMR(mr, thresholds)
+      const result = isClaudeMR(mr)
       return { mr, ...result }
     })
 

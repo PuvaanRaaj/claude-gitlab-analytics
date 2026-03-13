@@ -270,39 +270,35 @@ export function isClaudeCommit(commit, avgFilesChanged, thresholds = DEFAULT_THR
 }
 
 /**
- * Detect if an MR was Claude-assisted
+ * Detect if an MR was AI-assisted.
+ * Only explicit signals count — description length and conventional title
+ * are NOT used because GitLab templates produce long descriptions for all MRs.
  */
-export function isClaudeMR(mr, thresholds = DEFAULT_THRESHOLDS) {
+export function isClaudeMR(mr) {
   const reasons = []
   const desc = mr.description || ''
-  const descLen = desc.length
 
-  // Definitive: AI label on the MR
+  // Definitive: AI label on the MR (ai::generated, ai::assisted, code::*, etc.)
   if (hasAILabel(mr.labels)) {
     reasons.push('ai_label')
   }
 
-  // Definitive: AI-Agent trailer in description
+  // Definitive: explicit AI-Agent trailer in description
   if (AI_AGENT_TRAILER.test(desc)) {
     reasons.push('ai_agent_trailer')
   }
 
-  // Heuristic: detailed description
-  if (descLen > thresholds.mrDescriptionLength) {
-    reasons.push('detailed_description')
-  }
-
-  // Heuristic: title follows conventional format
-  if (CONVENTIONAL_PREFIXES.test(mr.title?.trim() || '')) {
-    reasons.push('conventional_title')
+  // Definitive: Co-Authored-By with a known AI tool
+  const coMatch = desc.match(CO_AUTHOR_TRAILER)
+  if (coMatch && extractAITool(desc)) {
+    reasons.push('co_author_trailer')
   }
 
   const isAI = reasons.length > 0
   return {
     isClaudeAssisted: isAI,
     reasons,
-    descriptionLength: descLen,
-    aiTool: isAI ? (extractAITool(mr.description || '') ?? extractAITool(mr.title || '') ?? null) : null,
+    aiTool: isAI ? (extractToolFromLabels(mr.labels) ?? extractAITool(desc) ?? null) : null,
   }
 }
 
