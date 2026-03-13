@@ -1,17 +1,24 @@
 /**
  * Flow metrics computation from merged label events (resource_label_events + system notes).
  *
- * MR Flow (DO:: labels):
- *   Coder   → created_at  to  DO::Ready For Review  (added)
- *   Review  → DO::Ready For Review  to  DO::Deploy UAT  (added)
- *   QC      → DO::Deploy UAT  to  DO::Checked  (added)
- *   Deploy  → DO::Release Queue  to  merged_at
- *   Total   → created_at  to  merged_at
+ * Auto-detects flow type per MR (a coder may work on both repos):
  *
- * Issue Flow (DO:: labels):
- *   Triage       → created_at  to  DO::Request for Verification  (added)
- *   Verification → DO::Request for Verification  to  DO::Verified  (added)
- *   Approval     → DO::Request for Approval  to  DO::Approved  (added)
+ * Backend MR (has DO::Deploy UAT):
+ *   Coder   → created_at → DO::Ready For Review
+ *   Review  → DO::Ready For Review → DO::Deploy UAT
+ *   QC      → DO::Deploy UAT → DO::Checked
+ *   Deploy  → DO::Release Queue → merged_at
+ *
+ * Server MR (no DO::Deploy UAT, has DO::Ready For Merge):
+ *   Coder   → created_at → DO::Ready For Review
+ *   Review  → DO::Ready For Review → DO::Ready For Merge
+ *   QC      → null (no QC stage in server flow)
+ *   Deploy  → DO::Release Queue → merged_at
+ *
+ * Issue Flow (shared):
+ *   Triage       → created_at  to  DO::Request for Verification
+ *   Verification → DO::Request for Verification  to  DO::Verified
+ *   Approval     → DO::Request for Approval  to  DO::Approved
  *   Close        → DO::Approved  to  closed_at
  *   Total        → created_at  to  closed_at
  */
@@ -56,19 +63,28 @@ export function computeMRFlow(mr, labelEvents = []) {
   const readyForReview = firstAddedAt(labelEvents, 'DO::Ready For Review')
   const deployUAT      = firstAddedAt(labelEvents, 'DO::Deploy UAT')
   const checked        = firstAddedAt(labelEvents, 'DO::Checked')
-               || firstAddedAt(labelEvents, 'DO::Ready For Merge')
+  const readyForMerge  = firstAddedAt(labelEvents, 'DO::Ready For Merge')
+                      || firstAddedAt(labelEvents, 'DO::Read For Merge') // typo variant
   const releaseQueue   = firstAddedAt(labelEvents, 'DO::Release Queue')
 
+  // Auto-detect flow type:
+  // Backend → has DO::Deploy UAT (goes through UAT + QC stages)
+  // Server  → has DO::Ready For Merge but no DO::Deploy UAT (review directly to deploy)
+  const isBackend = !!deployUAT
+  const reviewEnd = isBackend ? deployUAT : readyForMerge
+
   return {
-    mrId:     mr.id,
-    iid:      mr.iid,
-    title:    mr.title,
-    username: mr.author?.username,
-    coderMs:  readyForReview ? readyForReview - created                   : null,
-    reviewMs: (readyForReview && deployUAT) ? deployUAT - readyForReview  : null,
-    qcMs:     (deployUAT && checked)        ? checked - deployUAT         : null,
-    deployMs: (releaseQueue && merged)      ? merged - releaseQueue       : null,
-    totalMs:  merged ? merged - created : null,
+    mrId:      mr.id,
+    iid:       mr.iid,
+    title:     mr.title,
+    username:  mr.author?.username,
+    flowType:  isBackend ? 'backend' : readyForMerge ? 'server' : 'unknown',
+    coderMs:   readyForReview ? readyForReview - created                    : null,
+    reviewMs:  (readyForReview && reviewEnd) ? reviewEnd - readyForReview   : null,
+    // QC only exists for Backend (null for Server MRs — excluded from averages)
+    qcMs:      (isBackend && deployUAT && checked) ? checked - deployUAT   : null,
+    deployMs:  (releaseQueue && merged) ? merged - releaseQueue             : null,
+    totalMs:   merged ? merged - created : null,
   }
 }
 

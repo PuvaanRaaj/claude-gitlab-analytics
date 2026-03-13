@@ -66,6 +66,8 @@ function TeamAvgRow({ mrFlows, issueFlows }) {
 }
 
 function UserFlowRow({ username, userMRFlows, userIssueFlows }) {
+  const be = userMRFlows.filter(f => f.flowType === 'backend').length
+  const sv = userMRFlows.filter(f => f.flowType === 'server').length
   return (
     <tr className="border-t border-obs-border/40 hover:bg-obs-card/30 transition-colors">
       <td className="px-4 py-2.5 font-mono text-xs text-obs-cyan">@{username}</td>
@@ -74,7 +76,15 @@ function UserFlowRow({ username, userMRFlows, userIssueFlows }) {
           <StagePill ms={avgMs(userMRFlows, s.key)} />
         </td>
       ))}
-      <td className="px-4 py-2.5 text-center font-mono text-[11px] text-obs-muted/60">{userMRFlows.length}</td>
+      <td className="px-4 py-2.5 text-center">
+        <div className="font-mono text-[11px] text-obs-muted/60">{userMRFlows.length}</div>
+        {(be > 0 || sv > 0) && (
+          <div className="flex items-center justify-center gap-1 mt-0.5">
+            {be > 0 && <span className="font-mono text-[9px] text-obs-cyan/60">{be}B</span>}
+            {sv > 0 && <span className="font-mono text-[9px] text-purple-400/60">{sv}S</span>}
+          </div>
+        )}
+      </td>
       {ISSUE_STAGES.map(s => (
         <td key={s.key} className="px-4 py-2.5 text-center">
           <StagePill ms={avgMs(userIssueFlows, s.key)} />
@@ -88,13 +98,35 @@ function UserFlowRow({ username, userMRFlows, userIssueFlows }) {
 /** Compact single-user stage cards for MemberPage */
 function MemberStageCards({ flows, stages, title, count, accentColor }) {
   const avgs = stages.map(s => ({ ...s, val: avgMs(flows, s.key) }))
+
+  // Flow type breakdown (only for MR flows)
+  const backendCount = flows.filter(f => f.flowType === 'backend').length
+  const serverCount  = flows.filter(f => f.flowType === 'server').length
+  const showTypeSplit = (backendCount > 0 || serverCount > 0) && (backendCount + serverCount === count)
+
   return (
     <div>
-      <p className="font-mono text-[10px] uppercase tracking-widest mb-2" style={{ color: accentColor }}>
-        {title} <span className="opacity-50">· {count} {count === 1 ? 'item' : 'items'}</span>
-      </p>
+      <div className="flex items-center gap-3 mb-2">
+        <p className="font-mono text-[10px] uppercase tracking-widest" style={{ color: accentColor }}>
+          {title} <span className="opacity-50">· {count} {count === 1 ? 'item' : 'items'}</span>
+        </p>
+        {showTypeSplit && (
+          <div className="flex items-center gap-2">
+            {backendCount > 0 && (
+              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-obs-cyan/20 bg-obs-cyan/10 text-obs-cyan">
+                {backendCount} backend
+              </span>
+            )}
+            {serverCount > 0 && (
+              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded border border-purple-400/20 bg-purple-400/10 text-purple-400">
+                {serverCount} server
+              </span>
+            )}
+          </div>
+        )}
+      </div>
       <div className="grid grid-cols-4 sm:grid-cols-5 gap-2">
-        {avgs.map(({ key, label, color, val }) => (
+        {avgs.map(({ key, label, val }) => (
           <div key={key} className="bg-obs-card border border-obs-border rounded-lg px-3 py-2 text-center">
             <div className={`font-mono text-sm font-semibold ${stageColor(val)}`}>{fmtDur(val)}</div>
             <div className="font-mono text-[10px] text-obs-muted mt-0.5">{label}</div>
