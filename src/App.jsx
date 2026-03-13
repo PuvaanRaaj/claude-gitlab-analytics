@@ -32,27 +32,18 @@ function hasCredentials() {
   )
 }
 
-// Fallback allowlist — used when neither localStorage nor VITE_TEAM_ALLOWED_USERS is set.
-// Team page is always restricted; never open to everyone by default.
-const DEFAULT_TEAM_ALLOWED_USERS = [
-  'puvaanraaj', 'shangqin', 'chenyaau94', 'fatihi', 'mohdhafeezjohari',
-  'sukwah.lee', 'eserenna', 'apis17', 'jimanx2', 'adryn33129', 'ttj',
-]
-
 /**
  * Returns the list of GitLab usernames allowed to view the Team page.
- * Priority: localStorage > VITE_TEAM_ALLOWED_USERS env var > DEFAULT_TEAM_ALLOWED_USERS
- * Never returns an empty list — falls back to the hardcoded default so access is always restricted.
+ * Priority: localStorage > VITE_TEAM_ALLOWED_USERS env var
+ * Empty list = Team page is blocked for everyone (configure to grant access).
  */
 export function getTeamAllowedUsers() {
   const stored = localStorage.getItem('team_allowed_users')
   if (stored !== null) {
-    const list = stored.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
-    return list.length > 0 ? list : DEFAULT_TEAM_ALLOWED_USERS
+    return stored.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
   }
   const env = import.meta.env.VITE_TEAM_ALLOWED_USERS || ''
-  const list = env.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
-  return list.length > 0 ? list : DEFAULT_TEAM_ALLOWED_USERS
+  return env.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
 }
 
 export function setTeamAllowedUsers(usernames) {
@@ -211,9 +202,9 @@ export default function App() {
     setTeamAllowedUsersState(usernames)
   }
 
-  // Team page access: empty list = everyone allowed; non-empty = only listed usernames
-  const canViewTeam = teamAllowedUsers.length === 0 ||
-    (currentUser && teamAllowedUsers.includes(currentUser.username?.toLowerCase()))
+  // Team page access: empty list = blocked for everyone; non-empty = only listed usernames allowed
+  const canViewTeam = teamAllowedUsers.length > 0 &&
+    !!(currentUser && teamAllowedUsers.includes(currentUser.username?.toLowerCase()))
 
   function handleSignOut() {
     localStorage.removeItem('gl_token')
