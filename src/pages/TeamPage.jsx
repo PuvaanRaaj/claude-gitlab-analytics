@@ -1,6 +1,9 @@
+import { useState } from 'react'
 import TeamBreakdown    from '../components/TeamBreakdown'
 import ProjectBreakdown from '../components/ProjectBreakdown'
 import MetricCard       from '../components/MetricCard'
+import FlowMetrics      from '../components/FlowMetrics'
+import { useFlowAnalytics } from '../hooks/useFlowAnalytics'
 
 function fmtLines(n) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
@@ -20,6 +23,8 @@ function fmtDuration(ms) {
 }
 
 export default function TeamPage({ loading, taggedCommits, projects, claudeLines, manualLines, memberUsernameMap, mrs, issues, claudeMRs, claudeIssues, onSelectMember }) {
+  const [flowEnabled, setFlowEnabled] = useState(false)
+  const { mrFlows, issueFlows, loading: flowLoading, fetched } = useFlowAnalytics(mrs, issues, flowEnabled)
   const totalCommits = taggedCommits.length
   const aiCommits    = taggedCommits.filter(t => t.isClaudeAssisted).length
   const aiPct        = totalCommits > 0 ? Math.round((aiCommits / totalCommits) * 100) : 0
@@ -121,6 +126,42 @@ export default function TeamPage({ loading, taggedCommits, projects, claudeLines
 
       <TeamBreakdown    taggedCommits={taggedCommits} mrs={mrs} issues={issues} loading={loading} memberUsernameMap={memberUsernameMap} onSelectMember={onSelectMember} />
       <ProjectBreakdown taggedCommits={taggedCommits} projects={projects} loading={loading} />
+
+      {/* Flow Analytics — lazy loaded */}
+      <div className="bg-obs-surface border border-obs-border rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-obs-border">
+          <div>
+            <h3 className="font-display font-semibold text-obs-text-bright text-sm">Pipeline Flow Analytics</h3>
+            <p className="font-mono text-xs text-obs-muted mt-0.5">
+              Time stuck at each stage · Coder → Review → QC → Deploy
+            </p>
+          </div>
+          {!flowEnabled ? (
+            <button
+              onClick={() => setFlowEnabled(true)}
+              className="px-4 py-1.5 rounded-lg border border-obs-cyan/30 font-mono text-xs text-obs-cyan hover:bg-obs-cyan/10 transition-all"
+            >
+              Load Flow Data
+            </button>
+          ) : flowLoading ? (
+            <span className="font-mono text-xs text-obs-muted animate-pulse">Fetching label events…</span>
+          ) : (
+            <span className="font-mono text-xs text-obs-muted">
+              {mrFlows.length} MRs · {issueFlows.length} issues analysed
+            </span>
+          )}
+        </div>
+        {flowEnabled && (
+          <div className="p-5">
+            <FlowMetrics
+              mrFlows={mrFlows}
+              issueFlows={issueFlows}
+              loading={flowLoading}
+              showTeamTable
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

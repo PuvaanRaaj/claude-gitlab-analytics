@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { parseAILabels } from '../utils/detection'
+import FlowMetrics from '../components/FlowMetrics'
+import { useFlowAnalytics } from '../hooks/useFlowAnalytics'
 
 const DEFINITIVE_REASONS = ['ai_agent_trailer', 'co_author_trailer', 'risk_level_trailer', 'antigravity_pattern', 'cursor_style', 'detailed_conventional_commit', 'conventional_commit', 'descriptive_action_commit']
 const PAGE_SIZE = 25
@@ -78,6 +80,9 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
   const [tab, setTab] = useState('commits')
   const [page, setPage] = useState(0)
   const [commitFilter, setCommitFilter] = useState('all')
+  const [mrFilter,     setMrFilter]     = useState('all')
+  const [issueFilter,  setIssueFilter]  = useState('all')
+  const [flowEnabled,  setFlowEnabled]  = useState(false)
 
   // Build set of all normalised names this author is known by
   const authorNameKeys = new Set([
@@ -135,7 +140,7 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
     { id: 'issues',  label: `Issues (${memberIssues.length})` },
   ]
 
-  function switchTab(t) { setTab(t); setPage(0) }
+  function switchTab(t) { setTab(t); setPage(0); setMrFilter('all'); setIssueFilter('all') }
 
   const sortedMRs = [...memberMRs].sort((a, b) => {
     // Open MRs first
@@ -162,16 +167,23 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
       ? commits.filter(t => t.isClaudeAssisted)
       : commits.filter(t => !t.isClaudeAssisted)
 
-  const activeItems = tab === 'commits' ? filteredCommits : tab === 'mrs' ? sortedMRs : sortedIssues
-  const totalPages = Math.ceil(activeItems.length / PAGE_SIZE)
-
   // MR section split
-  const aiMRsList = sortedMRs.filter(hasAIMRLabel)
+  const aiMRsList     = sortedMRs.filter(hasAIMRLabel)
   const manualMRsList = sortedMRs.filter(mr => !hasAIMRLabel(mr))
 
   // Issue section split
-  const aiIssuesList = sortedIssues.filter(hasAIIssueLabel)
+  const aiIssuesList     = sortedIssues.filter(hasAIIssueLabel)
   const manualIssuesList = sortedIssues.filter(i => !hasAIIssueLabel(i))
+
+  // Apply MR/Issue filters
+  const filteredMRs = mrFilter === 'all' ? sortedMRs : mrFilter === 'ai' ? aiMRsList : manualMRsList
+  const filteredIssues = issueFilter === 'all' ? sortedIssues : issueFilter === 'ai' ? aiIssuesList : manualIssuesList
+
+  const activeItems = tab === 'commits' ? filteredCommits : tab === 'mrs' ? filteredMRs : filteredIssues
+  const totalPages = Math.ceil(activeItems.length / PAGE_SIZE)
+
+  // Flow analytics (lazy)
+  const { mrFlows, issueFlows, loading: flowLoading } = useFlowAnalytics(memberMRs, memberIssues, flowEnabled)
 
   function renderCommitRow(commit, isClaudeAssisted, reasons = [], aiTool) {
     const firstLine = (commit.message || '').split('\n')[0].trim()
@@ -365,6 +377,36 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
         <StatCard label="Burn Rate (AI/wk)" value={`${aiCommitsWeek}`} sub={`${totalCommitsWeek} total/wk`} accent="cyan" />
       </div>
 
+      {/* Flow Analytics */}
+      <div className="bg-obs-surface border border-obs-border rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-obs-border">
+          <div>
+            <h4 className="font-display font-semibold text-obs-text-bright text-sm">Pipeline Flow Timing</h4>
+            <p className="font-mono text-[10px] text-obs-muted mt-0.5">Time spent at each stage based on DO:: labels</p>
+          </div>
+          {!flowEnabled ? (
+            <button
+              onClick={() => setFlowEnabled(true)}
+              className="px-3 py-1.5 rounded-lg border border-obs-cyan/30 font-mono text-[10px] text-obs-cyan hover:bg-obs-cyan/10 transition-all"
+            >
+              Load
+            </button>
+          ) : flowLoading ? (
+            <span className="font-mono text-[10px] text-obs-muted animate-pulse">Loading…</span>
+          ) : null}
+        </div>
+        {flowEnabled && (
+          <div className="p-4">
+            <FlowMetrics
+              mrFlows={mrFlows}
+              issueFlows={issueFlows}
+              loading={flowLoading}
+              memberUsername={author.username || author.key}
+            />
+          </div>
+        )}
+      </div>
+
       <div className="section-divider" />
 
       {/* Tabs + content */}
@@ -411,20 +453,50 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
           </div>
         )}
 
-        {/* Sub-header for MRs tab */}
+        {/* MRs filter bar */}
         {tab === 'mrs' && (
-          <div className="px-5 py-2 border-b border-obs-border/30 bg-obs-card/20">
+          <div className="px-5 py-2.5 border-b border-obs-border/40 bg-obs-card/20 flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              {['all', 'ai', 'manual'].map(f => (
+                <button
+                  key={f}
+                  onClick={() => { setMrFilter(f); setPage(0) }}
+                  className={`px-3 py-1 rounded-md font-mono text-[10px] uppercase tracking-wider transition-all ${
+                    mrFilter === f
+                      ? 'bg-obs-surface text-obs-cyan border border-obs-cyan/30'
+                      : 'text-obs-muted hover:text-obs-text'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
             <span className="font-mono text-[10px] text-obs-muted">
-              {aiMRsList.length} MRs Created by AI · {memberMRs.filter(mr => mr.state === 'opened').length} open · {memberMRs.filter(mr => mr.state === 'merged').length} merged
+              {filteredMRs.length} MRs · {memberMRs.filter(mr => mr.state === 'opened').length} open · {memberMRs.filter(mr => mr.state === 'merged').length} merged
             </span>
           </div>
         )}
 
-        {/* Sub-header for Issues tab */}
+        {/* Issues filter bar */}
         {tab === 'issues' && (
-          <div className="px-5 py-2 border-b border-obs-border/30 bg-obs-card/20">
+          <div className="px-5 py-2.5 border-b border-obs-border/40 bg-obs-card/20 flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              {['all', 'ai', 'manual'].map(f => (
+                <button
+                  key={f}
+                  onClick={() => { setIssueFilter(f); setPage(0) }}
+                  className={`px-3 py-1 rounded-md font-mono text-[10px] uppercase tracking-wider transition-all ${
+                    issueFilter === f
+                      ? 'bg-obs-surface text-obs-cyan border border-obs-cyan/30'
+                      : 'text-obs-muted hover:text-obs-text'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
             <span className="font-mono text-[10px] text-obs-muted">
-              {aiIssuesList.length} Issues Created With AI · {memberIssues.filter(i => i.state === 'closed').length} closed · {memberIssues.filter(i => i.state === 'opened').length} open
+              {filteredIssues.length} issues · {memberIssues.filter(i => i.state === 'closed').length} closed
             </span>
           </div>
         )}
@@ -477,11 +549,11 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
 
           {/* ── MRs TAB ── */}
           {tab === 'mrs' && (
-            sortedMRs.length === 0 ? (
+            filteredMRs.length === 0 ? (
               <div className="flex items-center justify-center h-32">
                 <p className="text-obs-muted text-sm font-mono">No MRs</p>
               </div>
-            ) : (
+            ) : mrFilter === 'all' ? (
               <>
                 {aiMRsList.length > 0 && (
                   <div>
@@ -496,26 +568,31 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
                 )}
                 {manualMRsList.length > 0 && (
                   <div>
+                    {aiMRsList.length > 0 && <div className="section-divider" />}
                     <div className="px-5 py-2.5 flex items-center gap-3 bg-obs-card/30 border-b border-obs-border/40">
                       <div className="w-1.5 h-1.5 rounded-full bg-obs-amber" />
                       <span className="font-mono text-[10px] uppercase tracking-widest text-obs-amber">Manual MRs ({manualMRsList.length})</span>
                     </div>
                     <div className="divide-y divide-obs-border/50">
-                      {manualMRsList.slice(0, PAGE_SIZE).map(mr => renderMRRow(mr))}
+                      {manualMRsList.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(mr => renderMRRow(mr))}
                     </div>
                   </div>
                 )}
               </>
+            ) : (
+              <div className="divide-y divide-obs-border/50">
+                {filteredMRs.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(mr => renderMRRow(mr))}
+              </div>
             )
           )}
 
           {/* ── ISSUES TAB ── */}
           {tab === 'issues' && (
-            sortedIssues.length === 0 ? (
+            filteredIssues.length === 0 ? (
               <div className="flex items-center justify-center h-32">
                 <p className="text-obs-muted text-sm font-mono">No issues</p>
               </div>
-            ) : (
+            ) : issueFilter === 'all' ? (
               <>
                 {aiIssuesList.length > 0 && (
                   <div>
@@ -530,16 +607,21 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
                 )}
                 {manualIssuesList.length > 0 && (
                   <div>
+                    {aiIssuesList.length > 0 && <div className="section-divider" />}
                     <div className="px-5 py-2.5 flex items-center gap-3 bg-obs-card/30 border-b border-obs-border/40">
                       <div className="w-1.5 h-1.5 rounded-full bg-obs-amber" />
                       <span className="font-mono text-[10px] uppercase tracking-widest text-obs-amber">Manual Issues ({manualIssuesList.length})</span>
                     </div>
                     <div className="divide-y divide-obs-border/50">
-                      {manualIssuesList.slice(0, PAGE_SIZE).map(issue => renderIssueRow(issue))}
+                      {manualIssuesList.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(issue => renderIssueRow(issue))}
                     </div>
                   </div>
                 )}
               </>
+            ) : (
+              <div className="divide-y divide-obs-border/50">
+                {filteredIssues.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map(issue => renderIssueRow(issue))}
+              </div>
             )
           )}
         </div>
