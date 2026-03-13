@@ -471,9 +471,15 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
                 </button>
               ))}
             </div>
-            <span className="font-mono text-[10px] text-obs-muted">
-              {filteredMRs.length} MRs · {memberMRs.filter(mr => mr.state === 'opened').length} open · {memberMRs.filter(mr => mr.state === 'merged').length} merged
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] px-2 py-0.5 rounded border border-blue-500/30 bg-blue-500/10 text-blue-400">
+                {memberMRs.filter(mr => mr.state === 'opened').length} open
+              </span>
+              <span className="font-mono text-[10px] px-2 py-0.5 rounded border border-obs-cyan/30 bg-obs-cyan/10 text-obs-cyan">
+                {memberMRs.filter(mr => mr.state === 'merged').length} merged
+              </span>
+              <span className="font-mono text-[10px] text-obs-muted/50">{filteredMRs.length} shown</span>
+            </div>
           </div>
         )}
 
@@ -495,9 +501,15 @@ export default function MemberPage({ author, taggedCommits, mrs = [], issues = [
                 </button>
               ))}
             </div>
-            <span className="font-mono text-[10px] text-obs-muted">
-              {filteredIssues.length} issues · {memberIssues.filter(i => i.state === 'closed').length} closed
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] px-2 py-0.5 rounded border border-obs-amber/30 bg-obs-amber/10 text-obs-amber">
+                {memberIssues.filter(i => i.state === 'opened').length} open
+              </span>
+              <span className="font-mono text-[10px] px-2 py-0.5 rounded border border-green-500/30 bg-green-500/10 text-green-400">
+                {memberIssues.filter(i => i.state === 'closed').length} closed
+              </span>
+              <span className="font-mono text-[10px] text-obs-muted/50">{filteredIssues.length} shown</span>
+            </div>
           </div>
         )}
 

@@ -49,6 +49,30 @@ function isBot(name = '', email = '') {
   return BOT_PATTERNS.some(re => re.test(name))
 }
 
+/** Build per-username MR and issue counts from the full lists */
+function buildUserWorkStats(mrs = [], issues = []) {
+  const map = new Map()
+  function ensure(u) {
+    if (!map.has(u)) map.set(u, { mrOpen: 0, mrMerged: 0, issueOpen: 0, issueClosed: 0 })
+    return map.get(u)
+  }
+  for (const mr of mrs) {
+    const u = mr.author?.username?.toLowerCase()
+    if (!u) continue
+    const s = ensure(u)
+    if (mr.state === 'opened') s.mrOpen++
+    else if (mr.state === 'merged') s.mrMerged++
+  }
+  for (const issue of issues) {
+    const u = issue.author?.username?.toLowerCase()
+    if (!u) continue
+    const s = ensure(u)
+    if (issue.state === 'opened') s.issueOpen++
+    else if (issue.state === 'closed') s.issueClosed++
+  }
+  return map
+}
+
 function buildAuthorData(taggedCommits, memberUsernameMap = new Map()) {
   const norm = s => (s || '').replace(/[\s._-]+/g, '').toLowerCase()
 
@@ -133,12 +157,15 @@ function HoverTooltip({ data, visible }) {
   )
 }
 
-function AuthorRow({ entry, maxTotal, onSelect }) {
+function AuthorRow({ entry, maxTotal, workStats, onSelect }) {
   const [hovered, setHovered] = useState(false)
   const barWidth    = maxTotal > 0 ? (entry.total / maxTotal) * 100 : 0
   const defWidth    = entry.total > 0 ? (entry.definitive / entry.total) * 100 : 0
   const heurWidth   = entry.total > 0 ? (entry.heuristic  / entry.total) * 100 : 0
   const manualWidth = 100 - defWidth - heurWidth
+  const ws = workStats || { mrOpen: 0, mrMerged: 0, issueOpen: 0, issueClosed: 0 }
+  const hasMRs    = ws.mrOpen + ws.mrMerged > 0
+  const hasIssues = ws.issueOpen + ws.issueClosed > 0
 
   return (
     <div
@@ -157,19 +184,40 @@ function AuthorRow({ entry, maxTotal, onSelect }) {
         </span>
       </div>
 
-      {/* Bar track */}
-      <div className="flex-1 relative h-5 bg-obs-border/40 rounded overflow-hidden">
-        <div
-          className="absolute top-0 left-0 h-full flex rounded overflow-hidden transition-all duration-500"
-          style={{ width: `${barWidth}%` }}
-        >
-          <div style={{ width: `${defWidth}%`,    background: '#00D4FF' }} title="AI (confirmed)" />
-          <div style={{ width: `${heurWidth}%`,   background: '#A78BFA' }} title="Heuristic" />
-          <div style={{ width: `${manualWidth}%`, background: '#F59E0B' }} title="Manual" />
+      {/* Bar + sub-stats */}
+      <div className="flex-1 min-w-0">
+        <div className="relative h-5 bg-obs-border/40 rounded overflow-hidden">
+          <div
+            className="absolute top-0 left-0 h-full flex rounded overflow-hidden transition-all duration-500"
+            style={{ width: `${barWidth}%` }}
+          >
+            <div style={{ width: `${defWidth}%`,    background: '#00D4FF' }} title="AI (confirmed)" />
+            <div style={{ width: `${heurWidth}%`,   background: '#A78BFA' }} title="Heuristic" />
+            <div style={{ width: `${manualWidth}%`, background: '#F59E0B' }} title="Manual" />
+          </div>
         </div>
+        {/* MR / Issue counts */}
+        {(hasMRs || hasIssues) && (
+          <div className="flex items-center gap-3 mt-0.5">
+            {hasMRs && (
+              <span className="font-mono text-[10px] text-obs-muted">
+                MR <span className="text-blue-400">{ws.mrOpen} open</span>
+                <span className="opacity-40"> / </span>
+                <span className="text-obs-cyan">{ws.mrMerged} merged</span>
+              </span>
+            )}
+            {hasIssues && (
+              <span className="font-mono text-[10px] text-obs-muted">
+                Issues <span className="text-obs-amber">{ws.issueOpen} open</span>
+                <span className="opacity-40"> / </span>
+                <span className="text-green-400">{ws.issueClosed} closed</span>
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Stats */}
+      {/* Commit stats */}
       <div className="w-56 flex-shrink-0 text-right">
         <span className="font-mono text-xs text-obs-text whitespace-nowrap">
           {entry.total.toLocaleString()} ·{' '}
@@ -208,7 +256,7 @@ function commitSignalBadge(isClaudeAssisted, reasons = [], aiTool) {
   )
 }
 
-function UserModal({ author, taggedCommits, mrs = [], issues = [], onClose }) {
+function UserModal({ author, taggedCommits, mrs = [], issues = [], workStats, onClose }) {
   const [tab, setTab]   = useState('commits')
   const [page, setPage] = useState(0)
 
@@ -269,12 +317,24 @@ function UserModal({ author, taggedCommits, mrs = [], issues = [], onClose }) {
             <h3 className="font-sans font-semibold text-obs-text-bright text-base">{author.author}</h3>
             {author.displayName && <p className="font-mono text-xs text-obs-muted mt-0.5">{author.displayName}</p>}
             {author.aliases    && <p className="font-mono text-[10px] text-obs-muted/70 mt-0.5">aka {author.aliases}</p>}
-            <div className="flex items-center gap-3 mt-2">
+            <div className="flex items-center gap-3 mt-2 flex-wrap">
               <span className="font-mono text-xs text-obs-text">{commits.length} commits</span>
               {aiCount   > 0 && <span className="font-mono text-xs text-obs-cyan">{aiCount} AI</span>}
               {heurCount > 0 && <span className="font-mono text-xs text-purple-400">{heurCount} ~AI</span>}
-              {aiMRs.length   > 0 && <span className="font-mono text-xs text-obs-amber">{aiMRs.length} AI MRs</span>}
-              {aiIssues.length > 0 && <span className="font-mono text-xs text-green-400">{aiIssues.length} AI issues</span>}
+              {(workStats?.mrOpen > 0 || workStats?.mrMerged > 0) && (
+                <span className="font-mono text-xs text-obs-muted">
+                  MR <span className="text-blue-400">{workStats.mrOpen} open</span>
+                  {' / '}
+                  <span className="text-obs-cyan">{workStats.mrMerged} merged</span>
+                </span>
+              )}
+              {(workStats?.issueOpen > 0 || workStats?.issueClosed > 0) && (
+                <span className="font-mono text-xs text-obs-muted">
+                  Issues <span className="text-obs-amber">{workStats.issueOpen} open</span>
+                  {' / '}
+                  <span className="text-green-400">{workStats.issueClosed} closed</span>
+                </span>
+              )}
             </div>
           </div>
           <button onClick={onClose} className="text-obs-muted hover:text-obs-text transition-colors">
@@ -590,7 +650,8 @@ export default function TeamBreakdown({ taggedCommits = [], mrs = [], issues = [
     )
   }
 
-  const allData = buildAuthorData(taggedCommits, memberUsernameMap)
+  const allData    = buildAuthorData(taggedCommits, memberUsernameMap)
+  const workStatsMap = buildUserWorkStats(mrs, issues)
   const filtered = search.trim()
     ? allData.filter(e => e.author.toLowerCase().includes(search.toLowerCase()))
     : allData
@@ -674,6 +735,7 @@ export default function TeamBreakdown({ taggedCommits = [], mrs = [], issues = [
               key={entry.author}
               entry={entry}
               maxTotal={maxTotal}
+              workStats={entry.username ? workStatsMap.get(entry.username.toLowerCase()) : null}
               onSelect={onSelectMember}
             />
           ))}
