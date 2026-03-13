@@ -17,6 +17,7 @@ import MRsPage        from './pages/MRsPage'
 import IssuesPage     from './pages/IssuesPage'
 import TeamPage       from './pages/TeamPage'
 import PipelinesPage  from './pages/PipelinesPage'
+import MemberPage     from './pages/MemberPage'
 
 const TIME_RANGES = [
   { label: '7d',  value: '7d'  },
@@ -57,6 +58,7 @@ export default function App() {
   const [thresholds, setThresholds]     = useState(DEFAULT_THRESHOLDS)
   const [page, setPage]                 = useState('overview')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [selectedMember, setSelectedMember] = useState(null)
 
   const [timeRange, setTimeRange]       = useState('30d')
   const [customRange, setCustomRange]   = useState({ from: '', to: '' })
@@ -144,6 +146,9 @@ export default function App() {
       cacheSet(cacheKey, [...map.entries()], TTL_24H)
     })
   }, [authed, selectedIds.join(','), projects.length])
+
+  // Reset selected member when navigating to a different page
+  useEffect(() => { setSelectedMember(null) }, [page])
 
   const { commits, mrs, issues, pipelines, loading, error, retry, since, until } =
     useGitLabData(selectedIds, timeRange, customRange)
@@ -266,6 +271,7 @@ export default function App() {
     overview: 'Overview', commits: 'Commits', mrs: 'Merge Requests',
     issues: 'Issues', team: 'Team', pipelines: 'Pipelines',
   }
+  const pageTitle = (page === 'team' && selectedMember) ? selectedMember.author : (PAGE_TITLES[page] ?? page)
 
   return (
     <div className={`flex h-screen overflow-hidden ${darkMode ? 'bg-obs-bg' : 'bg-[#F8F9FC]'}`}>
@@ -302,7 +308,7 @@ export default function App() {
           <div className="h-14 px-5 flex items-center gap-4">
             {/* Page title */}
             <h1 className={`font-sans font-bold text-sm tracking-wide flex-shrink-0 ${darkMode ? 'text-obs-text-bright' : 'text-slate-900'}`}>
-              {PAGE_TITLES[page]}
+              {pageTitle}
             </h1>
 
             <div className="flex-1" />
@@ -385,7 +391,22 @@ export default function App() {
             {page === 'commits'    && <CommitsPage   {...sharedProps} />}
             {page === 'mrs'        && <MRsPage       {...sharedProps} />}
             {page === 'issues'     && <IssuesPage    {...sharedProps} />}
-            {page === 'team'       && (canViewTeam ? <TeamPage {...sharedProps} /> : (
+            {page === 'team' && (canViewTeam ? (
+              selectedMember
+                ? <MemberPage
+                    author={selectedMember}
+                    taggedCommits={taggedCommits}
+                    mrs={mrs}
+                    issues={issues}
+                    onBack={() => setSelectedMember(null)}
+                  />
+                : <TeamPage
+                    {...sharedProps}
+                    claudeMRs={claudeMRs}
+                    claudeIssues={claudeIssues}
+                    onSelectMember={setSelectedMember}
+                  />
+            ) : (
               <div className="flex flex-col items-center justify-center h-64 gap-3">
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" className="text-obs-border2">
                   <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="2"/>

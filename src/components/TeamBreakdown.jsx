@@ -548,11 +548,10 @@ async function exportToPDF(allData) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function TeamBreakdown({ taggedCommits = [], mrs = [], issues = [], loading, memberUsernameMap }) {
+export default function TeamBreakdown({ taggedCommits = [], mrs = [], issues = [], loading, memberUsernameMap, onSelectMember }) {
   const [showAll, setShowAll] = useState(false)
   const [search, setSearch] = useState('')
   const [exporting, setExporting] = useState(false)
-  const [selectedAuthor, setSelectedAuthor] = useState(null)
 
   if (loading) {
     return (
@@ -651,7 +650,7 @@ export default function TeamBreakdown({ taggedCommits = [], mrs = [], issues = [
               key={entry.author}
               entry={entry}
               maxTotal={maxTotal}
-              onSelect={setSelectedAuthor}
+              onSelect={onSelectMember}
             />
           ))}
         </div>
@@ -666,15 +665,6 @@ export default function TeamBreakdown({ taggedCommits = [], mrs = [], issues = [
         )}
       </div>
 
-      {selectedAuthor && (
-        <UserModal
-          author={selectedAuthor}
-          taggedCommits={taggedCommits}
-          mrs={mrs}
-          issues={issues}
-          onClose={() => setSelectedAuthor(null)}
-        />
-      )}
     </>
   )
 }

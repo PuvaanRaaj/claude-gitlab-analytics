@@ -1,14 +1,25 @@
 import TeamBreakdown    from '../components/TeamBreakdown'
+import ProjectBreakdown from '../components/ProjectBreakdown'
+import MetricCard       from '../components/MetricCard'
 
 function fmtLines(n) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`
   if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}k`
   return String(n)
 }
-import ProjectBreakdown from '../components/ProjectBreakdown'
-import MetricCard       from '../components/MetricCard'
 
-export default function TeamPage({ loading, taggedCommits, projects, claudeLines, manualLines, memberUsernameMap, mrs, issues }) {
+function fmtDuration(ms) {
+  if (ms <= 0 || isNaN(ms)) return '—'
+  const totalMinutes = Math.floor(ms / 60000)
+  const totalHours = Math.floor(totalMinutes / 60)
+  const days = Math.floor(totalHours / 24)
+  const hours = totalHours % 24
+  if (days > 0) return `${days}d ${hours}h`
+  if (totalHours > 0) return `${totalHours}h`
+  return `${totalMinutes}m`
+}
+
+export default function TeamPage({ loading, taggedCommits, projects, claudeLines, manualLines, memberUsernameMap, mrs, issues, claudeMRs, claudeIssues, onSelectMember }) {
   const totalCommits = taggedCommits.length
   const aiCommits    = taggedCommits.filter(t => t.isClaudeAssisted).length
   const aiPct        = totalCommits > 0 ? Math.round((aiCommits / totalCommits) * 100) : 0
@@ -18,9 +29,21 @@ export default function TeamPage({ loading, taggedCommits, projects, claudeLines
   const totalLines   = aiLines + manualLinesTotal
   const linesPct     = totalLines > 0 ? Math.round((aiLines / totalLines) * 100) : 0
 
+  // Avg merge time for AI MRs
+  const mergedAIMRs = (claudeMRs || []).filter(t => t.mr.state === 'merged' && t.mr.merged_at && t.mr.created_at)
+  const avgMergeMs = mergedAIMRs.length > 0
+    ? mergedAIMRs.reduce((s, t) => s + (new Date(t.mr.merged_at) - new Date(t.mr.created_at)), 0) / mergedAIMRs.length
+    : 0
+
+  // Avg close time for AI issues
+  const closedAIIssues = (claudeIssues || []).filter(t => t.issue.state === 'closed' && t.issue.closed_at && t.issue.created_at)
+  const avgCloseMs = closedAIIssues.length > 0
+    ? closedAIIssues.reduce((s, t) => s + (new Date(t.issue.closed_at) - new Date(t.issue.created_at)), 0) / closedAIIssues.length
+    : 0
+
   return (
     <div className="space-y-4">
-      {/* Team summary cards */}
+      {/* Team summary cards — 2 rows of 4 */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <MetricCard
           label="Team Commits"
@@ -58,9 +81,45 @@ export default function TeamPage({ loading, taggedCommits, projects, claudeLines
           delay={180}
           icon="◈"
         />
+        <MetricCard
+          label="AI MRs"
+          value={loading ? null : (claudeMRs?.length ?? 0).toLocaleString()}
+          sub={`${(claudeMRs || []).filter(t => t.mr.state === 'merged').length} merged`}
+          accent="purple"
+          loading={loading}
+          delay={240}
+          icon="⊕"
+        />
+        <MetricCard
+          label="AI Issues"
+          value={loading ? null : (claudeIssues?.length ?? 0).toLocaleString()}
+          sub={`${(claudeIssues || []).filter(t => t.issue.state === 'closed').length} closed`}
+          accent="green"
+          loading={loading}
+          delay={300}
+          icon="✓"
+        />
+        <MetricCard
+          label="Avg Merge Time"
+          value={loading ? null : mergedAIMRs.length > 0 ? fmtDuration(avgMergeMs) : '—'}
+          sub="AI MRs merged"
+          accent="amber"
+          loading={loading}
+          delay={360}
+          icon="⏱"
+        />
+        <MetricCard
+          label="Avg Close Time"
+          value={loading ? null : closedAIIssues.length > 0 ? fmtDuration(avgCloseMs) : '—'}
+          sub="AI issues closed"
+          accent="amber"
+          loading={loading}
+          delay={420}
+          icon="⏱"
+        />
       </div>
 
-      <TeamBreakdown    taggedCommits={taggedCommits} mrs={mrs} issues={issues} loading={loading} memberUsernameMap={memberUsernameMap} />
+      <TeamBreakdown    taggedCommits={taggedCommits} mrs={mrs} issues={issues} loading={loading} memberUsernameMap={memberUsernameMap} onSelectMember={onSelectMember} />
       <ProjectBreakdown taggedCommits={taggedCommits} projects={projects} loading={loading} />
     </div>
   )
