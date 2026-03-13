@@ -9,5 +9,7 @@ services:
         VITE_GITLAB_TOKEN: ${VITE_GITLAB_TOKEN:-}
         VITE_TEAM_ALLOWED_USERS: ${VITE_TEAM_ALLOWED_USERS:-}
     ports:
-      - "${PORT:-3000}:80"
+      - "9999:443"
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
     restart: unless-stopped
