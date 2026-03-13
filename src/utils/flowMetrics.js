@@ -99,6 +99,16 @@ export function computeMRFlow(mr, labelEvents = []) {
     }
   }
 
+  // For each stage: use exact duration if completed, or elapsed-so-far if currently active.
+  // waiting_release / waiting_deploy are "stuck at deploy queue" — count toward deployMs.
+  const activeAtDeploy = isOpen && ['deploy', 'waiting_release', 'waiting_deploy'].includes(currentStage)
+  const coderEnd   = readyForReview || (isOpen && currentStage === 'coder'  ? now : null)
+  const reviewEndT = reviewEnd      || (isOpen && currentStage === 'review' ? now : null)
+  const qcEndT     = checked        || (isOpen && currentStage === 'qc'     ? now : null)
+  // deployMs start: releaseQueue if exists, else readyForMerge (server) or checked (backend)
+  const deployStart = releaseQueue || (activeAtDeploy ? (readyForMerge || checked) : null)
+  const deployEndT  = merged       || (activeAtDeploy ? now : null)
+
   return {
     mrId:         mr.id,
     iid:          mr.iid,
@@ -109,11 +119,11 @@ export function computeMRFlow(mr, labelEvents = []) {
     isOpen,
     currentStage,
     stuckMs,
-    coderMs:      readyForReview ? readyForReview - created                    : null,
-    reviewMs:     (readyForReview && reviewEnd) ? reviewEnd - readyForReview   : null,
-    qcMs:         (isBackend && deployUAT && checked) ? checked - deployUAT   : null,
-    deployMs:     (releaseQueue && merged) ? merged - releaseQueue             : null,
-    totalMs:      merged ? merged - created : null,
+    coderMs:      coderEnd   ? coderEnd - created                       : null,
+    reviewMs:     (readyForReview && reviewEndT) ? reviewEndT - readyForReview : null,
+    qcMs:         (isBackend && deployUAT && qcEndT)  ? qcEndT - deployUAT    : null,
+    deployMs:     (deployStart && deployEndT) ? deployEndT - deployStart       : null,
+    totalMs:      merged ? merged - created : isOpen ? now - created : null,
   }
 }
 

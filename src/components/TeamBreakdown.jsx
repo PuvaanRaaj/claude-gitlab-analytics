@@ -27,6 +27,28 @@ function bestDisplayName(names) {
 
 const DEFINITIVE_REASONS = ['ai_agent_trailer', 'co_author_trailer', 'risk_level_trailer', 'antigravity_pattern', 'cursor_style', 'detailed_conventional_commit', 'conventional_commit', 'descriptive_action_commit']
 
+// Usernames/name patterns to exclude from the team view (bots, CI accounts)
+const BOT_PATTERNS = [
+  /^bot[_\-]?/i,
+  /[_\-]?bot$/i,
+  /^bot$/i,
+  /^gitlab-ci/i,
+  /^ci-bot/i,
+  /^dependabot/i,
+  /^renovate/i,
+]
+
+// Known bot usernames (add more here or via VITE_BOT_USERNAMES env var)
+const KNOWN_BOTS = ['bot_axel', 'axel_bot', 'gitlab-bot', 'ci-runner']
+
+function isBot(name = '', email = '') {
+  const envBots = (import.meta.env.VITE_BOT_USERNAMES || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+  const lc = (name || '').toLowerCase().trim()
+  if (KNOWN_BOTS.includes(lc)) return true
+  if (envBots.includes(lc)) return true
+  return BOT_PATTERNS.some(re => re.test(name))
+}
+
 function buildAuthorData(taggedCommits, memberUsernameMap = new Map()) {
   const norm = s => (s || '').replace(/[\s._-]+/g, '').toLowerCase()
 
@@ -39,6 +61,8 @@ function buildAuthorData(taggedCommits, memberUsernameMap = new Map()) {
 
   const map = new Map()
   for (const { commit, isClaudeAssisted, reasons = [] } of taggedCommits) {
+    // Skip bot accounts
+    if (isBot(commit.author_name || '', commit.author_email || '')) continue
     const raw = commit.author_name || 'Unknown'
     const key = authorKey(commit)
     if (!map.has(key)) map.set(key, { names: new Set(), emails: new Set(), total: 0, definitive: 0, heuristic: 0 })
